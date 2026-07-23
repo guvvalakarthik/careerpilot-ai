@@ -1,36 +1,61 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# CareerPilot AI
 
-## Getting Started
+An AI-powered job search and career networking platform. Capture job opportunities, track applications through a pipeline, manage recruiter contacts, prepare for interviews, and get explainable AI fit scoring — all inside private, multi-tenant workspaces.
 
-First, run the development server:
+## Tech stack
+
+- **Frontend:** Next.js (App Router), TypeScript, Tailwind CSS
+- **API:** tRPC (end-to-end type safety) with Zod validation
+- **Database:** PostgreSQL + Prisma ORM
+- **Auth:** Auth.js v5 (credentials + Google OAuth), JWT sessions
+- **AI:** Vercel AI SDK + Gemini (structured outputs), pgvector RAG (planned)
+- **Jobs:** Inngest (planned) · **Storage:** Cloudflare R2 (planned)
+- **Testing:** Vitest + Playwright (planned) · **CI:** GitHub Actions
+- **Deploy:** Vercel + Neon Postgres · **Monitoring:** Sentry (planned)
+
+## Getting started
+
+Prerequisites: Node 20+, Docker Desktop.
 
 ```bash
+# 1. Install dependencies
+npm install
+
+# 2. Configure environment
+copy .env.example .env   # then fill in AUTH_SECRET (npx auth secret)
+
+# 3. Start local Postgres (host port 5434)
+npm run db:up
+
+# 4. Apply migrations and seed demo data
+npm run db:migrate
+npm run db:seed
+
+# 5. Run the app
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open http://localhost:3000 — demo login: `demo@careerpilot.dev` / `demo1234`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Scripts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Script | Purpose |
+|---|---|
+| `npm run dev` | Start dev server |
+| `npm run build` | Production build |
+| `npm run lint` / `npm run typecheck` | Static checks (run in CI) |
+| `npm run db:up` | Start Dockerized Postgres |
+| `npm run db:migrate` | Apply Prisma migrations |
+| `npm run db:seed` | Seed demo user + workspace |
+| `npm run db:studio` | Browse data in Prisma Studio |
 
-## Learn More
+## Architecture notes
 
-To learn more about Next.js, take a look at the following resources:
+- **Multi-tenancy:** every domain record carries `workspaceId`; tRPC's `workspaceProcedure` verifies membership before any access.
+- **RBAC:** roles are `OWNER` / `COACH` / `SEEKER` per workspace; `requireRole([...])` gates privileged procedures.
+- **Audit logging:** all significant mutations write `AuditEvent` records via `recordAudit` (fire-and-forget, never blocks the main flow).
+- **Application workflow:** a 10-stage state machine (`CAPTURED` → ... → `ACCEPTED`/`REJECTED`/`WITHDRAWN`/`ARCHIVED`) with `DecisionEvent` history.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Roadmap
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Built over 8 weeks: foundation → pipeline + Quick Capture → AI extraction & fit scoring → contacts → interviews → document vault → grounded RAG assistant → testing & launch.

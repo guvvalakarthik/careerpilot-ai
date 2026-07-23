@@ -1,0 +1,449 @@
+// CareerPilot AI - Prisma Schema v1
+// Multi-tenant: every domain record carries workspaceId for tenant isolation.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- Enums ----------
+
+enum Role {
+  OWNER
+  COACH
+  SEEKER
+}
+
+enum ApplicationStage {
+  CAPTURED
+  RESEARCHING
+  READY_TO_APPLY
+  APPLIED
+  INTERVIEWING
+  OFFER
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
+  ARCHIVED
+}
+
+enum TaskStatus {
+  OPEN
+  IN_PROGRESS
+  DONE
+  CANCELLED
+}
+
+enum InterviewType {
+  PHONE_SCREEN
+  TECHNICAL
+  SYSTEM_DESIGN
+  BEHAVIORAL
+  HR
+  ONSITE
+  OTHER
+}
+
+enum InterviewOutcome {
+  PENDING
+  PASSED
+  FAILED
+  NO_SHOW
+  CANCELLED
+}
+
+enum DocumentType {
+  RESUME
+  COVER_LETTER
+  CERTIFICATE
+  PORTFOLIO
+  OFFER_LETTER
+  OTHER
+}
+
+enum AiRunType {
+  JOB_EXTRACTION
+  FIT_SCORING
+  OUTREACH_DRAFT
+  INTERVIEW_QUESTIONS
+  FOLLOW_UP_DRAFT
+  RESUME_SUGGESTION
+  ASSISTANT_CHAT
+}
+
+enum AiRunStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+enum NotificationType {
+  TASK_DUE
+  DEADLINE_APPROACHING
+  INTERVIEW_UPCOMING
+  APPLICATION_STALE
+  SYSTEM
+}
+
+// ---------- Auth.js models ----------
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  passwordHash  String?
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts         Account[]
+  sessions         Session[]
+  memberships      Membership[]
+  candidateProfile CandidateProfile?
+  auditEvents      AuditEvent[]
+  notifications    Notification[]
+  aiRuns           AiRun[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ---------- Tenancy ----------
+
+model Workspace {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships   Membership[]
+  companies     Company[]
+  opportunities JobOpportunity[]
+  applications  Application[]
+  contacts      Contact[]
+  interviews    Interview[]
+  tasks         Task[]
+  documents     Document[]
+  aiRuns        AiRun[]
+  auditEvents   AuditEvent[]
+  notifications Notification[]
+}
+
+model Membership {
+  id          String   @id @default(cuid())
+  workspaceId String
+  userId      String
+  role        Role     @default(SEEKER)
+  createdAt   DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId])
+  @@index([userId])
+}
+
+// ---------- Candidate ----------
+
+model CandidateProfile {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  headline        String?
+  summary         String?
+  skills          String[]
+  yearsExperience Float?
+  locations       String[]
+  desiredRoles    String[]
+  minSalary       Int?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ---------- Jobs & applications ----------
+
+model Company {
+  id          String   @id @default(cuid())
+  workspaceId String
+  name        String
+  website     String?
+  industry    String?
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  workspace     Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  opportunities JobOpportunity[]
+  contacts      Contact[]
+
+  @@index([workspaceId])
+}
+
+model JobOpportunity {
+  id                  String    @id @default(cuid())
+  workspaceId         String
+  companyId           String?
+  title               String?
+  rawInput            String? // original captured URL / pasted JD / note - always preserved
+  sourceUrl           String?
+  location            String?
+  employmentType      String?
+  requiredSkills      String[]
+  preferredSkills     String[]
+  experienceRequired  String?
+  salaryRange         String?
+  applicationDeadline DateTime?
+  extractedAt         DateTime? // when AI extraction completed
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  workspace   Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  company     Company?     @relation(fields: [companyId], references: [id])
+  application Application?
+
+  @@index([workspaceId])
+}
+
+model Application {
+  id            String           @id @default(cuid())
+  workspaceId   String
+  opportunityId String           @unique
+  stage         ApplicationStage @default(CAPTURED)
+  fitScore      Int? // 0-100
+  fitReasons    Json? // explainable scoring breakdown
+  missingSkills String[]
+  appliedAt     DateTime?
+  outcomeNotes  String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  lastStageAt   DateTime         @default(now()) // for staleness detection
+
+  workspace   Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  opportunity JobOpportunity    @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  interviews  Interview[]
+  tasks       Task[]
+  outreach    OutreachMessage[]
+  decisions   DecisionEvent[]
+  resumeLinks ResumeVersion[]
+
+  @@index([workspaceId, stage])
+}
+
+model DecisionEvent {
+  id            String           @id @default(cuid())
+  applicationId String
+  fromStage     ApplicationStage
+  toStage       ApplicationStage
+  note          String?
+  createdAt     DateTime         @default(now())
+
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId])
+}
+
+// ---------- Networking ----------
+
+model Contact {
+  id              String    @id @default(cuid())
+  workspaceId     String
+  companyId       String?
+  name            String
+  role            String?
+  email           String?
+  linkedinUrl     String?
+  relationship    String?
+  lastInteraction DateTime?
+  nextAction      String?
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  workspace Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  company   Company?          @relation(fields: [companyId], references: [id])
+  outreach  OutreachMessage[]
+
+  @@index([workspaceId])
+}
+
+model OutreachMessage {
+  id            String   @id @default(cuid())
+  applicationId String?
+  contactId     String
+  subject       String?
+  body          String
+  approved      Boolean  @default(false)
+  sentAt        DateTime?
+  createdAt     DateTime @default(now())
+
+  application Application? @relation(fields: [applicationId], references: [id])
+  contact     Contact      @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@index([contactId])
+}
+
+// ---------- Interviews & tasks ----------
+
+model Interview {
+  id            String           @id @default(cuid())
+  workspaceId   String
+  applicationId String
+  type          InterviewType    @default(OTHER)
+  scheduledAt   DateTime
+  durationMins  Int              @default(60)
+  interviewer   String?
+  notes         String?
+  outcome       InterviewOutcome @default(PENDING)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  workspace   Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  tasks       Task[]
+
+  @@index([workspaceId, scheduledAt])
+}
+
+model Task {
+  id            String     @id @default(cuid())
+  workspaceId   String
+  applicationId String?
+  interviewId   String?
+  title         String
+  description   String?
+  status        TaskStatus @default(OPEN)
+  dueAt         DateTime?
+  completedAt   DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  workspace   Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  application Application? @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  interview   Interview?   @relation(fields: [interviewId], references: [id])
+
+  @@index([workspaceId, status, dueAt])
+}
+
+// ---------- Documents ----------
+
+model Document {
+  id          String       @id @default(cuid())
+  workspaceId String
+  type        DocumentType @default(OTHER)
+  fileName    String
+  storageKey  String       @unique // R2 object key
+  mimeType    String
+  sizeBytes   Int
+  createdAt   DateTime     @default(now())
+
+  workspace      Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  resumeVersions ResumeVersion[]
+
+  @@index([workspaceId, type])
+}
+
+model ResumeVersion {
+  id         String   @id @default(cuid())
+  documentId String
+  version    Int
+  label      String?
+  createdAt  DateTime @default(now())
+
+  document     Document      @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  applications Application[]
+
+  @@unique([documentId, version])
+}
+
+// ---------- AI & observability ----------
+
+model AiRun {
+  id           String      @id @default(cuid())
+  workspaceId  String
+  userId       String
+  type         AiRunType
+  status       AiRunStatus @default(PENDING)
+  model        String?
+  inputSummary String?
+  output       Json?
+  errorMessage String?
+  latencyMs    Int?
+  createdAt    DateTime    @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, type])
+}
+
+model AuditEvent {
+  id          String   @id @default(cuid())
+  workspaceId String?
+  userId      String?
+  action      String // e.g. "workspace.create", "application.stage_change"
+  entityType  String // e.g. "Application"
+  entityId    String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  user      User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, createdAt])
+}
+
+model Notification {
+  id          String           @id @default(cuid())
+  workspaceId String
+  userId      String
+  type        NotificationType @default(SYSTEM)
+  title       String
+  body        String?
+  readAt      DateTime?
+  createdAt   DateTime         @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+}
