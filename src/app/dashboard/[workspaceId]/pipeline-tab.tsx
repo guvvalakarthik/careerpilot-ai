@@ -16,7 +16,7 @@ export function PipelineTab({ workspaceId }: { workspaceId: string }) {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-slate-500">
           {isLoading
             ? "Loading pipeline..."
             : `${applications?.length ?? 0} applications`}
@@ -25,7 +25,7 @@ export function PipelineTab({ workspaceId }: { workspaceId: string }) {
       </div>
 
       {isLoading ? (
-        <div className="flex h-64 items-center justify-center text-gray-400">
+        <div className="flex h-64 items-center justify-center text-slate-400">
           Loading board...
         </div>
       ) : applications && applications.length > 0 ? (
@@ -35,8 +35,8 @@ export function PipelineTab({ workspaceId }: { workspaceId: string }) {
           onSelectApplication={(id) => setSelectedAppId(id)}
         />
       ) : (
-        <div className="rounded-xl border border-dashed border-gray-300 p-12 text-center">
-          <p className="text-sm text-gray-500">
+        <div className="rounded-xl border border-dashed border-slate-300 bg-white p-12 text-center">
+          <p className="text-sm text-slate-500">
             No applications yet. Use Quick Capture to add your first job opportunity.
           </p>
         </div>

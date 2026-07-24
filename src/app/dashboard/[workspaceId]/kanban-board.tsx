@@ -17,16 +17,16 @@ type Stage =
   | "ARCHIVED";
 
 const STAGES: { id: Stage; label: string; color: string }[] = [
-  { id: "CAPTURED", label: "Captured", color: "border-t-gray-400" },
+  { id: "CAPTURED", label: "Captured", color: "border-t-slate-400" },
   { id: "RESEARCHING", label: "Researching", color: "border-t-blue-400" },
   { id: "READY_TO_APPLY", label: "Ready to Apply", color: "border-t-indigo-400" },
   { id: "APPLIED", label: "Applied", color: "border-t-green-400" },
   { id: "INTERVIEWING", label: "Interviewing", color: "border-t-purple-400" },
-  { id: "OFFER", label: "Offer", color: "border-t-yellow-400" },
+  { id: "OFFER", label: "Offer", color: "border-t-amber-400" },
   { id: "ACCEPTED", label: "Accepted", color: "border-t-emerald-500" },
   { id: "REJECTED", label: "Rejected", color: "border-t-red-400" },
   { id: "WITHDRAWN", label: "Withdrawn", color: "border-t-orange-400" },
-  { id: "ARCHIVED", label: "Archived", color: "border-t-gray-300" },
+  { id: "ARCHIVED", label: "Archived", color: "border-t-slate-300" },
 ];
 
 type Application = {
@@ -109,17 +109,17 @@ export function KanbanBoard({
         return (
           <div
             key={stage.id}
-            className={`w-64 flex-shrink-0 rounded-lg border-t-4 ${stage.color} bg-gray-50 ${
-              dragOverStage === stage.id ? "ring-2 ring-blue-400" : ""
+            className={`w-64 flex-shrink-0 rounded-lg border-t-4 ${stage.color} bg-slate-50 ${
+              dragOverStage === stage.id ? "ring-2 ring-slate-400" : ""
             }`}
             onDragOver={(e) => handleDragOver(e, stage.id)}
             onDrop={(e) => handleDrop(e, stage.id)}
           >
             <div className="flex items-center justify-between px-3 py-2">
-              <h3 className="text-xs font-semibold text-gray-600">
+              <h3 className="text-xs font-semibold text-slate-600">
                 {stage.label}
               </h3>
-              <span className="rounded-full bg-gray-200 px-2 py-0.5 text-xs text-gray-600">
+              <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs text-slate-600">
                 {stageApps.length}
               </span>
             </div>
@@ -132,16 +132,16 @@ export function KanbanBoard({
                   onDragStart={(e) => handleDragStart(e, app.id)}
                   onDragEnd={handleDragEnd}
                   onClick={() => onSelectApplication(app.id)}
-                  className={`cursor-pointer rounded-lg border border-gray-200 bg-white p-3 shadow-sm transition hover:shadow-md ${
+                  className={`cursor-pointer rounded-lg border border-slate-200 bg-white p-3 shadow-sm transition hover:border-slate-300 hover:shadow-md ${
                     draggingId === app.id ? "opacity-40" : ""
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">
+                      <p className="truncate text-sm font-medium text-slate-900">
                         {app.opportunity.title ?? "Untitled role"}
                       </p>
-                      <p className="mt-0.5 flex items-center gap-1 text-xs text-gray-500">
+                      <p className="mt-0.5 flex items-center gap-1 text-xs text-slate-500">
                         <Building2 className="h-3 w-3" />
                         {app.opportunity.company?.name ?? "Unknown company"}
                       </p>
@@ -162,7 +162,7 @@ export function KanbanBoard({
                     )}
                   </div>
 
-                  <div className="mt-2 flex items-center gap-2 text-xs text-gray-400">
+                  <div className="mt-2 flex items-center gap-2 text-xs text-slate-400">
                     {app.opportunity.location && (
                       <span>{app.opportunity.location}</span>
                     )}
@@ -172,7 +172,7 @@ export function KanbanBoard({
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={(e) => e.stopPropagation()}
-                        className="inline-flex items-center gap-0.5 text-blue-500 hover:underline"
+                        className="inline-flex items-center gap-0.5 text-slate-600 hover:underline"
                       >
                         <ExternalLink className="h-3 w-3" />
                         source
@@ -189,7 +189,7 @@ export function KanbanBoard({
               ))}
 
               {stageApps.length === 0 && (
-                <div className="rounded-lg border border-dashed border-gray-200 py-6 text-center text-xs text-gray-300">
+                <div className="rounded-lg border border-dashed border-slate-200 py-6 text-center text-xs text-slate-300">
                   Empty
                 </div>
               )}

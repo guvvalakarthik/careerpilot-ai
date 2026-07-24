@@ -54,7 +54,7 @@ export function QuickCaptureModal({ workspaceId }: { workspaceId: string }) {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+        className="flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
       >
         <Zap className="h-4 w-4" />
         Quick Capture
@@ -66,33 +66,33 @@ export function QuickCaptureModal({ workspaceId }: { workspaceId: string }) {
           onClick={() => setOpen(false)}
         >
           <div
-            className="w-full max-w-lg rounded-xl bg-white p-6 shadow-lg"
+            className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between">
-              <h2 className="flex items-center gap-2 text-lg font-semibold">
-                <Zap className="h-5 w-5 text-blue-600" />
+              <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-900">
+                <Zap className="h-5 w-5 text-amber-500" />
                 Quick Capture
               </h2>
               <button
                 onClick={() => setOpen(false)}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-slate-400 transition hover:text-slate-600"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            <p className="mt-1 text-xs text-gray-400">
+            <p className="mt-1 text-xs text-slate-400">
               Paste a job URL or job description. AI extraction comes in Week 2 — for now it&apos;s saved as-is.
             </p>
 
             <div className="mt-4 flex gap-2">
               <button
                 onClick={() => setMode("url")}
-                className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium ${
+                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium ${
                   mode === "url"
-                    ? "bg-blue-50 text-blue-700"
-                    : "text-gray-500 hover:bg-gray-50"
+                    ? "bg-slate-100 text-slate-900"
+                    : "text-slate-500 hover:bg-slate-50"
                 }`}
               >
                 <LinkIcon className="h-3.5 w-3.5" />
@@ -100,10 +100,10 @@ export function QuickCaptureModal({ workspaceId }: { workspaceId: string }) {
               </button>
               <button
                 onClick={() => setMode("text")}
-                className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium ${
+                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium ${
                   mode === "text"
-                    ? "bg-blue-50 text-blue-700"
-                    : "text-gray-500 hover:bg-gray-50"
+                    ? "bg-slate-100 text-slate-900"
+                    : "text-slate-500 hover:bg-slate-50"
                 }`}
               >
                 <FileText className="h-3.5 w-3.5" />
@@ -114,72 +114,72 @@ export function QuickCaptureModal({ workspaceId }: { workspaceId: string }) {
             <form onSubmit={handleSubmit} className="mt-4 space-y-4">
               {mode === "url" ? (
                 <div>
-                  <label className="block text-sm font-medium">Job URL</label>
+                  <label className="block text-sm font-medium text-slate-700">Job URL</label>
                   <input
                     type="url"
                     required
                     placeholder="https://linkedin.com/jobs/view/..."
                     value={url}
                     onChange={(e) => setUrl(e.target.value)}
-                    className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                    className="mt-1.5 w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm transition focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
                   />
                 </div>
               ) : (
                 <div>
-                  <label className="block text-sm font-medium">Job Description</label>
+                  <label className="block text-sm font-medium text-slate-700">Job Description</label>
                   <textarea
                     required
                     rows={5}
                     placeholder="Paste the full job description here..."
                     value={rawText}
                     onChange={(e) => setRawText(e.target.value)}
-                    className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                    className="mt-1.5 w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm transition focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
                   />
                 </div>
               )}
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium">
-                    Company <span className="text-gray-400">(optional)</span>
+                  <label className="block text-sm font-medium text-slate-700">
+                    Company <span className="text-slate-400">(optional)</span>
                   </label>
                   <input
                     type="text"
                     placeholder="e.g. Google"
                     value={companyName}
                     onChange={(e) => setCompanyName(e.target.value)}
-                    className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                    className="mt-1.5 w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm transition focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium">
-                    Title <span className="text-gray-400">(optional)</span>
+                  <label className="block text-sm font-medium text-slate-700">
+                    Title <span className="text-slate-400">(optional)</span>
                   </label>
                   <input
                     type="text"
                     placeholder="e.g. SDE II"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                    className="mt-1.5 w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm transition focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
                   />
                 </div>
               </div>
 
-              {error && <p className="text-sm text-red-600">{error}</p>}
-              {success && <p className="text-sm text-green-600">{success}</p>}
+              {error && <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</div>}
+              {success && <div className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-600">{success}</div>}
 
               <div className="flex justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
-                  className="rounded-md border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50"
+                  className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={captureMutation.isPending}
-                  className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                  className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50"
                 >
                   {captureMutation.isPending ? "Capturing..." : "Capture"}
                 </button>

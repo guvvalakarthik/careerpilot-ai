@@ -35,7 +35,7 @@ export function CreateWorkspaceModal() {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+        className="flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
       >
         <Plus className="h-4 w-4" />
         New Workspace
@@ -47,11 +47,11 @@ export function CreateWorkspaceModal() {
           onClick={() => setOpen(false)}
         >
           <div
-            className="w-full max-w-md rounded-xl bg-white p-6 shadow-lg"
+            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Create Workspace</h2>
+              <h2 className="text-lg font-semibold text-slate-900">Create Workspace</h2>
               <button
                 onClick={() => setOpen(false)}
                 className="text-gray-400 hover:text-gray-600"
@@ -75,29 +75,29 @@ export function CreateWorkspaceModal() {
                   placeholder="e.g. My Job Search"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                  className="mt-1.5 w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm transition focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
                 />
-                <p className="mt-1 text-xs text-gray-400">
-                  You&apos;ll be the OWNER of this workspace.
+                <p className="mt-1 text-xs text-slate-400">
+                  You&apos;ll be the owner of this workspace.
                 </p>
               </div>
 
               {error && (
-                <p className="text-sm text-red-600">{error}</p>
+                <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</div>
               )}
 
               <div className="flex justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
-                  className="rounded-md border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50"
+                  className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={createMutation.isPending}
-                  className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                  className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50"
                 >
                   {createMutation.isPending ? "Creating..." : "Create"}
                 </button>

@@ -15,9 +15,9 @@ const roleConfig: Record<
   string,
   { icon: typeof Crown; badge: string; label: string }
 > = {
-  OWNER: { icon: Crown, badge: "bg-purple-50 text-purple-700", label: "Owner" },
+  OWNER: { icon: Crown, badge: "bg-violet-50 text-violet-700", label: "Owner" },
   COACH: { icon: Shield, badge: "bg-blue-50 text-blue-700", label: "Coach" },
-  SEEKER: { icon: GraduationCap, badge: "bg-gray-100 text-gray-600", label: "Seeker" },
+  SEEKER: { icon: GraduationCap, badge: "bg-slate-100 text-slate-600", label: "Seeker" },
 };
 
 export function MembersTab({
@@ -82,12 +82,12 @@ export function MembersTab({
   return (
     <div className="space-y-6">
       {canInvite && (
-        <div className="rounded-xl border border-gray-200 p-5">
-          <h3 className="flex items-center gap-2 font-semibold">
+        <div className="rounded-xl border border-slate-200 bg-white p-5">
+          <h3 className="flex items-center gap-2 font-semibold text-slate-900">
             <UserPlus className="h-4 w-4" />
             Invite Member
           </h3>
-          <p className="mt-1 text-xs text-gray-400">
+          <p className="mt-1 text-xs text-slate-400">
             The user must be registered on CareerPilot AI first.
           </p>
 
@@ -98,14 +98,14 @@ export function MembersTab({
               placeholder="user@example.com"
               value={inviteEmail}
               onChange={(e) => setInviteEmail(e.target.value)}
-              className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              className="flex-1 rounded-lg border border-slate-300 px-3.5 py-2 text-sm transition focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
             />
             <select
               value={inviteRole}
               onChange={(e) =>
                 setInviteRole(e.target.value as "SEEKER" | "COACH" | "OWNER")
               }
-              className="rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              className="rounded-lg border border-slate-300 px-3.5 py-2 text-sm transition focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
             >
               <option value="SEEKER">Seeker</option>
               <option value="COACH">Coach</option>
@@ -114,23 +114,23 @@ export function MembersTab({
             <button
               type="submit"
               disabled={inviteMutation.isPending}
-              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+              className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50"
             >
               {inviteMutation.isPending ? "Inviting..." : "Invite"}
             </button>
           </form>
 
           {inviteError && (
-            <p className="mt-2 text-sm text-red-600">{inviteError}</p>
+            <div className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{inviteError}</div>
           )}
           {inviteSuccess && (
-            <p className="mt-2 text-sm text-green-600">{inviteSuccess}</p>
+            <div className="mt-2 rounded-lg bg-green-50 px-3 py-2 text-sm text-green-600">{inviteSuccess}</div>
           )}
         </div>
       )}
 
       <div>
-        <h3 className="mb-3 font-semibold">
+        <h3 className="mb-3 font-semibold text-slate-900">
           Members ({members.length})
         </h3>
         <div className="space-y-2">
@@ -142,20 +142,20 @@ export function MembersTab({
             return (
               <div
                 key={m.id}
-                className="flex items-center justify-between rounded-lg border border-gray-200 px-4 py-3"
+                className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3"
               >
                 <div className="flex items-center gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-sm font-medium text-gray-600">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-sm font-medium text-slate-600">
                     {m.user.name?.[0]?.toUpperCase() ?? m.user.email[0]?.toUpperCase()}
                   </div>
                   <div>
-                    <p className="text-sm font-medium">
+                    <p className="text-sm font-medium text-slate-900">
                       {m.user.name ?? m.user.email}
                       {isCurrentUser && (
-                        <span className="ml-2 text-xs text-gray-400">(you)</span>
+                        <span className="ml-2 text-xs text-slate-400">(you)</span>
                       )}
                     </p>
-                    <p className="text-xs text-gray-400">{m.user.email}</p>
+                    <p className="text-xs text-slate-400">{m.user.email}</p>
                   </div>
                 </div>
 
@@ -171,7 +171,7 @@ export function MembersTab({
                         })
                       }
                       disabled={changeRoleMutation.isPending}
-                      className="rounded-md border border-gray-300 px-2 py-1 text-xs focus:border-blue-500 focus:outline-none"
+                      className="rounded-lg border border-slate-300 px-2 py-1 text-xs transition focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
                     >
                       <option value="SEEKER">Seeker</option>
                       <option value="COACH">Coach</option>
@@ -195,7 +195,7 @@ export function MembersTab({
                         })
                       }
                       disabled={removeMutation.isPending}
-                      className="rounded-md p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600"
+                      className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
                       title="Remove member"
                     >
                       <Trash2 className="h-4 w-4" />

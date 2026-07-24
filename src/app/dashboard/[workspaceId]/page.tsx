@@ -2,7 +2,8 @@ import { redirect, notFound } from "next/navigation";
 import { auth } from "@/server/auth";
 import { db } from "@/server/db";
 import Link from "next/link";
-import { ArrowLeft, Building2 } from "lucide-react";
+import { ArrowLeft, Briefcase } from "lucide-react";
+import { AppNavbar } from "@/components/app-navbar";
 import { WorkspaceTabs } from "./workspace-tabs";
 
 export default async function WorkspaceDetailPage({
@@ -42,32 +43,38 @@ export default async function WorkspaceDetailPage({
   const [companies, opportunities, applications, contacts, interviews, tasks] = stats;
 
   return (
-    <main className="mx-auto w-full max-w-5xl px-4 py-10">
-      <Link
-        href="/dashboard"
-        className="mb-4 inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to dashboard
-      </Link>
+    <div className="min-h-screen bg-slate-50">
+      <AppNavbar />
 
-      <div className="flex items-center gap-3">
-        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50">
-          <Building2 className="h-6 w-6 text-blue-600" />
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold">{membership.workspace.name}</h1>
-          <p className="text-sm text-gray-400">/{membership.workspace.slug}</p>
-        </div>
-      </div>
+      <main className="mx-auto w-full max-w-6xl px-4 py-8">
+        <Link
+          href="/dashboard"
+          className="mb-4 inline-flex items-center gap-1.5 text-sm text-slate-500 transition hover:text-slate-700"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to workspaces
+        </Link>
 
-      <WorkspaceTabs
-        workspaceId={workspaceId}
-        role={membership.role}
-        currentUserId={session.user.id}
-        members={JSON.parse(JSON.stringify(members))}
-        stats={{ companies, opportunities, applications, contacts, interviews, tasks }}
-      />
-    </main>
+        <div className="flex items-center gap-3">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-slate-900">
+            <Briefcase className="h-6 w-6 text-white" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+              {membership.workspace.name}
+            </h1>
+            <p className="text-sm text-slate-400">{membership.workspace.slug}</p>
+          </div>
+        </div>
+
+        <WorkspaceTabs
+          workspaceId={workspaceId}
+          role={membership.role}
+          currentUserId={session.user.id}
+          members={JSON.parse(JSON.stringify(members))}
+          stats={{ companies, opportunities, applications, contacts, interviews, tasks }}
+        />
+      </main>
+    </div>
   );
 }
