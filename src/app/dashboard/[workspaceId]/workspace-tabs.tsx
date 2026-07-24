@@ -13,12 +13,14 @@ import {
   Building2,
   KanbanSquare,
   CalendarClock,
+  FolderArchive,
 } from "lucide-react";
 import { MembersTab } from "./members-tab";
 import { SettingsTab } from "./settings-tab";
 import { PipelineTab } from "./pipeline-tab";
 import { ContactsTab } from "./contacts-tab";
 import { UpcomingTab } from "./upcoming-tab";
+import { DocumentsTab } from "./documents-tab";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 
 type Member = {
@@ -59,7 +61,7 @@ export function WorkspaceTabs({
   members: Member[];
   stats: Stats;
 }) {
-  const [tab, setTab] = useState<"overview" | "pipeline" | "contacts" | "upcoming" | "members" | "settings">("overview");
+  const [tab, setTab] = useState<"overview" | "pipeline" | "contacts" | "upcoming" | "documents" | "members" | "settings">("overview");
   useKeyboardShortcuts();
 
   const tabs = [
@@ -67,6 +69,7 @@ export function WorkspaceTabs({
     { id: "pipeline" as const, label: "Pipeline", icon: KanbanSquare },
     { id: "contacts" as const, label: "Contacts", icon: Mail },
     { id: "upcoming" as const, label: "Upcoming", icon: CalendarClock },
+    { id: "documents" as const, label: "Documents", icon: FolderArchive },
     { id: "members" as const, label: "Members", icon: Users },
     { id: "settings" as const, label: "Settings", icon: Settings },
   ];
@@ -132,6 +135,10 @@ export function WorkspaceTabs({
 
         {tab === "upcoming" && (
           <UpcomingTab workspaceId={workspaceId} />
+        )}
+
+        {tab === "documents" && (
+          <DocumentsTab workspaceId={workspaceId} />
         )}
 
         {tab === "members" && (
