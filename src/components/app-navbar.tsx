@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Rocket, LogOut, User } from "lucide-react";
-import { auth, signOut } from "@/server/auth";
+import { auth } from "@/server/auth";
+import { signOutAction } from "@/components/actions";
 
 export async function AppNavbar() {
   const session = await auth();
@@ -38,12 +39,7 @@ export async function AppNavbar() {
               </div>
             </>
           )}
-          <form
-            action={async () => {
-              "use server";
-              await signOut({ redirectTo: "/login" });
-            }}
-          >
+          <form action={signOutAction}>
             <button
               type="submit"
               className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
