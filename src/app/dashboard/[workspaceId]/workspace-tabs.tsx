@@ -11,9 +11,11 @@ import {
   Calendar,
   CheckSquare,
   Building2,
+  KanbanSquare,
 } from "lucide-react";
 import { MembersTab } from "./members-tab";
 import { SettingsTab } from "./settings-tab";
+import { PipelineTab } from "./pipeline-tab";
 
 type Member = {
   id: string;
@@ -53,10 +55,11 @@ export function WorkspaceTabs({
   members: Member[];
   stats: Stats;
 }) {
-  const [tab, setTab] = useState<"overview" | "members" | "settings">("overview");
+  const [tab, setTab] = useState<"overview" | "pipeline" | "members" | "settings">("overview");
 
   const tabs = [
     { id: "overview" as const, label: "Overview", icon: LayoutDashboard },
+    { id: "pipeline" as const, label: "Pipeline", icon: KanbanSquare },
     { id: "members" as const, label: "Members", icon: Users },
     { id: "settings" as const, label: "Settings", icon: Settings },
   ];
@@ -109,12 +112,11 @@ export function WorkspaceTabs({
               );
             })}
 
-            <div className="col-span-full rounded-xl border border-dashed border-gray-200 p-6 text-center">
-              <p className="text-sm text-gray-400">
-                Pipeline and Quick Capture features arrive in Week 2.
-              </p>
-            </div>
           </div>
+        )}
+
+        {tab === "pipeline" && (
+          <PipelineTab workspaceId={workspaceId} />
         )}
 
         {tab === "members" && (
