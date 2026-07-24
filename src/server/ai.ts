@@ -166,3 +166,57 @@ Consider: skill overlap (weighted heavily), experience level match, and transfer
 export function isAIConfigured() {
   return !!apiKey;
 }
+
+export interface ChatMessage {
+  role: "user" | "model";
+  content: string;
+}
+
+/**
+ * Context-aware assistant chat using Gemini with workspace data as context.
+ * Returns null if no API key is configured.
+ */
+export async function assistantChat(
+  messages: ChatMessage[],
+  context: string,
+): Promise<string | null> {
+  const client = getClient();
+  if (!client) return null;
+
+  const model = client.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+  const systemPrompt = `You are CareerPilot AI, a helpful career search assistant. You have access to the user's workspace data below. Use it to provide personalized, actionable advice.
+
+Workspace context:
+${context}
+
+Guidelines:
+- Be concise and practical
+- Reference specific applications, companies, or interviews from the context when relevant
+- If asked to draft emails or messages, provide a complete draft
+- If asked about interview prep, give structured preparation tips
+- If the user asks about something not in the context, say so and give general advice`;
+
+  const history = messages.slice(0, -1).map((m) => ({
+    role: m.role,
+    parts: [{ text: m.content }],
+  }));
+
+  const lastMessage = messages[messages.length - 1];
+
+  try {
+    const chat = model.startChat({
+      history: [
+        { role: "user", parts: [{ text: systemPrompt }] },
+        { role: "model", parts: [{ text: "I understand. I have your workspace context and I'm ready to help with your career search." }] },
+        ...history,
+      ],
+    });
+
+    const result = await chat.sendMessage(lastMessage.content);
+    return result.response.text();
+  } catch (err) {
+    console.error("Assistant chat failed:", err);
+    return null;
+  }
+}
