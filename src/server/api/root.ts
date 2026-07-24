@@ -5,6 +5,7 @@ import { companyRouter } from "@/server/api/routers/company";
 import { opportunityRouter } from "@/server/api/routers/opportunity";
 import { candidateRouter } from "@/server/api/routers/candidate";
 import { aiRouter } from "@/server/api/routers/ai";
+import { contactRouter } from "@/server/api/routers/contact";
 
 export const appRouter = createTRPCRouter({
   workspace: workspaceRouter,
@@ -13,6 +14,7 @@ export const appRouter = createTRPCRouter({
   opportunity: opportunityRouter,
   candidate: candidateRouter,
   ai: aiRouter,
+  contact: contactRouter,
 });
 
 export type AppRouter = typeof appRouter;

@@ -16,6 +16,7 @@ import {
 import { MembersTab } from "./members-tab";
 import { SettingsTab } from "./settings-tab";
 import { PipelineTab } from "./pipeline-tab";
+import { ContactsTab } from "./contacts-tab";
 
 type Member = {
   id: string;
@@ -55,11 +56,12 @@ export function WorkspaceTabs({
   members: Member[];
   stats: Stats;
 }) {
-  const [tab, setTab] = useState<"overview" | "pipeline" | "members" | "settings">("overview");
+  const [tab, setTab] = useState<"overview" | "pipeline" | "contacts" | "members" | "settings">("overview");
 
   const tabs = [
     { id: "overview" as const, label: "Overview", icon: LayoutDashboard },
     { id: "pipeline" as const, label: "Pipeline", icon: KanbanSquare },
+    { id: "contacts" as const, label: "Contacts", icon: Mail },
     { id: "members" as const, label: "Members", icon: Users },
     { id: "settings" as const, label: "Settings", icon: Settings },
   ];
@@ -117,6 +119,10 @@ export function WorkspaceTabs({
 
         {tab === "pipeline" && (
           <PipelineTab workspaceId={workspaceId} />
+        )}
+
+        {tab === "contacts" && (
+          <ContactsTab workspaceId={workspaceId} />
         )}
 
         {tab === "members" && (
