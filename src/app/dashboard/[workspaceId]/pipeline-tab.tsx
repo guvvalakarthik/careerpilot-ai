@@ -1,16 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { Search, Filter } from "lucide-react";
+import { Search, Filter, LayoutGrid, List } from "lucide-react";
 import { api } from "@/trpc/react";
 import { KanbanBoard } from "./kanban-board";
 import { QuickCaptureModal } from "./quick-capture-modal";
 import { ApplicationDetailDrawer } from "./application-detail-drawer";
+import { EmptyState } from "@/components/empty-state";
 
 export function PipelineTab({ workspaceId }: { workspaceId: string }) {
   const [selectedAppId, setSelectedAppId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [companyFilter, setCompanyFilter] = useState("");
+  const [viewMode, setViewMode] = useState<"board" | "list">("board");
 
   const { data: applications, isLoading } = api.application.list.useQuery({
     workspaceId,
@@ -50,9 +52,25 @@ export function PipelineTab({ workspaceId }: { workspaceId: string }) {
           </select>
         </div>
         <div className="ml-auto flex items-center gap-3">
-          <p className="text-sm text-slate-500">
+          <p className="hidden text-sm text-slate-500 sm:block">
             {isLoading ? "Loading..." : `${filteredCount} application${filteredCount !== 1 ? "s" : ""}`}
           </p>
+          <div className="flex items-center gap-1 rounded-lg border border-slate-200 p-0.5">
+            <button
+              onClick={() => setViewMode("board")}
+              className={"flex items-center justify-center rounded-md p-1.5 transition " + (viewMode === "board" ? "bg-slate-900 text-white" : "text-slate-500 hover:bg-slate-100")}
+              title="Board view"
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => setViewMode("list")}
+              className={"flex items-center justify-center rounded-md p-1.5 transition " + (viewMode === "list" ? "bg-slate-900 text-white" : "text-slate-500 hover:bg-slate-100")}
+              title="List view"
+            >
+              <List className="h-4 w-4" />
+            </button>
+          </div>
           <QuickCaptureModal workspaceId={workspaceId} />
         </div>
       </div>
@@ -62,19 +80,53 @@ export function PipelineTab({ workspaceId }: { workspaceId: string }) {
           Loading board...
         </div>
       ) : applications && applications.length > 0 ? (
-        <KanbanBoard
-          workspaceId={workspaceId}
-          applications={applications as never}
-          onSelectApplication={(id) => setSelectedAppId(id)}
-        />
+        viewMode === "board" ? (
+          <KanbanBoard
+            workspaceId={workspaceId}
+            applications={applications as never}
+            onSelectApplication={(id) => setSelectedAppId(id)}
+          />
+        ) : (
+          <div className="space-y-2">
+            {(applications as never as Array<{
+              id: string;
+              stage: string;
+              opportunity: { title: string | null; company: { name: string | null } | null; location: string | null };
+              fitScore: number | null;
+            }>).map((app) => (
+              <button
+                key={app.id}
+                onClick={() => setSelectedAppId(app.id)}
+                className="flex w-full items-center gap-3 rounded-lg border border-slate-200 bg-white p-3 text-left transition hover:border-slate-300 hover:shadow-sm"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-slate-900">
+                    {app.opportunity.title ?? "Untitled"}
+                  </p>
+                  <p className="truncate text-xs text-slate-500">
+                    {app.opportunity.company?.name ?? "Unknown"}
+                    {app.opportunity.location ? ` - ${app.opportunity.location}` : ""}
+                  </p>
+                </div>
+                <span className="flex-shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+                  {app.stage.replace(/_/g, " ").toLowerCase()}
+                </span>
+                {app.fitScore !== null && (
+                  <span className="flex-shrink-0 text-xs font-medium text-blue-600">
+                    {app.fitScore}%
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        )
       ) : (
-        <div className="rounded-xl border border-dashed border-slate-300 bg-white p-12 text-center">
-          <p className="text-sm text-slate-500">
-            {search || companyFilter
-              ? "No applications match your filters."
-              : "No applications yet. Use Quick Capture to add your first job opportunity."}
-          </p>
-        </div>
+        <EmptyState
+          icon="pipeline"
+          message={search || companyFilter
+            ? "No applications match your filters."
+            : "No applications yet. Use Quick Capture to add your first job opportunity."}
+        />
       )}
 
       {selectedAppId && (

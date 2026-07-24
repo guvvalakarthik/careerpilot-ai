@@ -1,0 +1,16 @@
+{
+  "name": "CareerPilot AI",
+  "short_name": "CareerPilot",
+  "description": "AI-powered job search tracking and career management",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
