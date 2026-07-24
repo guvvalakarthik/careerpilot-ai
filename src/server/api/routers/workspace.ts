@@ -121,4 +121,110 @@ export const workspaceRouter = createTRPCRouter({
 
       return { ok: true };
     }),
+
+  inviteMember: requireRole(["OWNER", "COACH"])
+    .input(
+      z.object({
+        workspaceId: z.string(),
+        email: z.string().email(),
+        role: z.enum(["OWNER", "COACH", "SEEKER"]).default("SEEKER"),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const user = await ctx.db.user.findUnique({
+        where: { email: input.email },
+      });
+      if (!user) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "No user found with that email. Ask them to register first.",
+        });
+      }
+
+      const existing = await ctx.db.membership.findUnique({
+        where: {
+          workspaceId_userId: { workspaceId: ctx.workspaceId, userId: user.id },
+        },
+      });
+      if (existing) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "User is already a member of this workspace.",
+        });
+      }
+
+      const membership = await ctx.db.membership.create({
+        data: {
+          workspaceId: ctx.workspaceId,
+          userId: user.id,
+          role: input.role,
+        },
+      });
+
+      await recordAudit({
+        db: ctx.db,
+        workspaceId: ctx.workspaceId,
+        userId: ctx.userId,
+        action: "workspace.member_invite",
+        entityType: "Membership",
+        entityId: membership.id,
+        metadata: { invitedEmail: input.email, role: input.role },
+      });
+
+      return membership;
+    }),
+
+  changeRole: requireRole(["OWNER"])
+    .input(
+      z.object({
+        workspaceId: z.string(),
+        memberUserId: z.string(),
+        role: z.enum(["OWNER", "COACH", "SEEKER"]),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      if (input.memberUserId === ctx.userId && input.role !== "OWNER") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "You cannot demote yourself. Transfer ownership first.",
+        });
+      }
+
+      const membership = await ctx.db.membership.update({
+        where: {
+          workspaceId_userId: { workspaceId: ctx.workspaceId, userId: input.memberUserId },
+        },
+        data: { role: input.role },
+      });
+
+      await recordAudit({
+        db: ctx.db,
+        workspaceId: ctx.workspaceId,
+        userId: ctx.userId,
+        action: "workspace.member_role_change",
+        entityType: "Membership",
+        entityId: membership.id,
+        metadata: { memberUserId: input.memberUserId, newRole: input.role },
+      });
+
+      return membership;
+    }),
+
+  stats: workspaceProcedure
+    .input(z.object({ workspaceId: z.string() }))
+    .query(async ({ ctx }) => {
+      const [companies, opportunities, applications, contacts, interviews, tasks] =
+        await Promise.all([
+          ctx.db.company.count({ where: { workspaceId: ctx.workspaceId } }),
+          ctx.db.jobOpportunity.count({ where: { workspaceId: ctx.workspaceId } }),
+          ctx.db.application.count({ where: { workspaceId: ctx.workspaceId } }),
+          ctx.db.contact.count({ where: { workspaceId: ctx.workspaceId } }),
+          ctx.db.interview.count({ where: { workspaceId: ctx.workspaceId } }),
+          ctx.db.task.count({
+            where: { workspaceId: ctx.workspaceId, status: "OPEN" },
+          }),
+        ]);
+
+      return { companies, opportunities, applications, contacts, interviews, tasks };
+    }),
 });
