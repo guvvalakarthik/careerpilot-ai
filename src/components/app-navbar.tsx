@@ -3,6 +3,7 @@ import { Rocket, LogOut, User } from "lucide-react";
 import { auth } from "@/server/auth";
 import { signOutAction } from "@/components/actions";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { NotificationBell } from "@/components/notification-bell";
 
 export async function AppNavbar() {
   const session = await auth();
@@ -40,6 +41,7 @@ export async function AppNavbar() {
               </div>
             </>
           )}
+          <NotificationBell />
           <ThemeToggle />
           <form action={signOutAction}>
             <button
