@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Zap, X, Link as LinkIcon, FileText } from "lucide-react";
 import { api } from "@/trpc/react";
 
@@ -14,6 +14,14 @@ export function QuickCaptureModal({ workspaceId }: { workspaceId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const utils = api.useUtils();
+
+  useEffect(() => {
+    function handleOpen() {
+      setOpen(true);
+    }
+    window.addEventListener("quick-capture-open", handleOpen);
+    return () => window.removeEventListener("quick-capture-open", handleOpen);
+  }, []);
 
   const captureMutation = api.opportunity.quickCapture.useMutation({
     onSuccess: () => {

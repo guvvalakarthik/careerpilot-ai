@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Rocket, LogOut, User } from "lucide-react";
 import { auth } from "@/server/auth";
 import { signOutAction } from "@/components/actions";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export async function AppNavbar() {
   const session = await auth();
@@ -39,6 +40,7 @@ export async function AppNavbar() {
               </div>
             </>
           )}
+          <ThemeToggle />
           <form action={signOutAction}>
             <button
               type="submit"

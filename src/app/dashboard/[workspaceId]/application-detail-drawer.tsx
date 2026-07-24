@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X, Building2, Star, Clock, MapPin, ExternalLink, Calendar, CheckCircle2, GitBranch, Sparkles, Zap, MessageSquare, Send, Plus } from "lucide-react";
+import { X, Building2, Star, Clock, MapPin, ExternalLink, Calendar, CheckCircle2, GitBranch, Sparkles, Zap, MessageSquare, Send, Plus, Trash2, Pencil, XCircle } from "lucide-react";
 import { api } from "@/trpc/react";
 
 const stageLabels: Record<string, string> = {
@@ -44,6 +44,17 @@ export function ApplicationDetailDrawer({
   const [outreachSubject, setOutreachSubject] = useState("");
   const [outreachBody, setOutreachBody] = useState("");
   const [outreachContactId, setOutreachContactId] = useState("");
+  const [showInterviewForm, setShowInterviewForm] = useState(false);
+  const [editingInterviewId, setEditingInterviewId] = useState<string | null>(null);
+  const [ivType, setIvType] = useState("OTHER");
+  const [ivDate, setIvDate] = useState("");
+  const [ivDuration, setIvDuration] = useState("60");
+  const [ivInterviewer, setIvInterviewer] = useState("");
+  const [ivNotes, setIvNotes] = useState("");
+  const [showTaskForm, setShowTaskForm] = useState(false);
+  const [taskTitle, setTaskTitle] = useState("");
+  const [taskDesc, setTaskDesc] = useState("");
+  const [taskDueAt, setTaskDueAt] = useState("");
   const utils = api.useUtils();
 
   const { data: app, isLoading } = api.application.get.useQuery({
@@ -91,6 +102,104 @@ export function ApplicationDetailDrawer({
       utils.application.get.invalidate({ workspaceId, applicationId });
     },
   });
+
+  const createInterviewMutation = api.interview.create.useMutation({
+    onSuccess: () => {
+      utils.application.get.invalidate({ workspaceId, applicationId });
+      utils.interview.list.invalidate({ workspaceId });
+      resetInterviewForm();
+    },
+  });
+
+  const updateInterviewMutation = api.interview.update.useMutation({
+    onSuccess: () => {
+      utils.application.get.invalidate({ workspaceId, applicationId });
+      utils.interview.list.invalidate({ workspaceId });
+      resetInterviewForm();
+    },
+  });
+
+  const cancelInterviewMutation = api.interview.cancel.useMutation({
+    onSuccess: () => {
+      utils.application.get.invalidate({ workspaceId, applicationId });
+      utils.interview.list.invalidate({ workspaceId });
+    },
+  });
+
+  const deleteInterviewMutation = api.interview.delete.useMutation({
+    onSuccess: () => {
+      utils.application.get.invalidate({ workspaceId, applicationId });
+      utils.interview.list.invalidate({ workspaceId });
+    },
+  });
+
+  const createTaskMutation = api.task.create.useMutation({
+    onSuccess: () => {
+      utils.application.get.invalidate({ workspaceId, applicationId });
+      utils.task.list.invalidate({ workspaceId });
+      resetTaskForm();
+    },
+  });
+
+  const updateTaskMutation = api.task.update.useMutation({
+    onSuccess: () => {
+      utils.application.get.invalidate({ workspaceId, applicationId });
+      utils.task.list.invalidate({ workspaceId });
+    },
+  });
+
+  const deleteTaskMutation = api.task.delete.useMutation({
+    onSuccess: () => {
+      utils.application.get.invalidate({ workspaceId, applicationId });
+      utils.task.list.invalidate({ workspaceId });
+    },
+  });
+
+  function resetInterviewForm() {
+    setShowInterviewForm(false);
+    setEditingInterviewId(null);
+    setIvType("OTHER");
+    setIvDate("");
+    setIvDuration("60");
+    setIvInterviewer("");
+    setIvNotes("");
+  }
+
+  function resetTaskForm() {
+    setShowTaskForm(false);
+    setTaskTitle("");
+    setTaskDesc("");
+    setTaskDueAt("");
+  }
+
+  function handleInterviewSubmit() {
+    if (!ivDate) return;
+    const payload = {
+      workspaceId,
+      applicationId,
+      type: ivType as never,
+      scheduledAt: new Date(ivDate).toISOString(),
+      durationMins: parseInt(ivDuration) || 60,
+      interviewer: ivInterviewer.trim() || null,
+      notes: ivNotes.trim() || null,
+    };
+    if (editingInterviewId) {
+      updateInterviewMutation.mutate({ ...payload, interviewId: editingInterviewId });
+    } else {
+      createInterviewMutation.mutate(payload);
+    }
+  }
+
+  function handleTaskSubmit() {
+    if (!taskTitle.trim()) return;
+    createTaskMutation.mutate({
+      workspaceId,
+      applicationId,
+      title: taskTitle.trim(),
+      description: taskDesc.trim() || null,
+      dueAt: taskDueAt ? new Date(taskDueAt).toISOString() : null,
+    });
+  }
 
   const validTransitions: Record<string, string[]> = {
     CAPTURED: ["RESEARCHING", "READY_TO_APPLY", "REJECTED", "WITHDRAWN", "ARCHIVED"],
@@ -385,52 +494,245 @@ export function ApplicationDetailDrawer({
               </div>
             </div>
 
-            {app.interviews.length > 0 && (
-              <div className="mt-6">
+            {/* Interviews */}
+            <div className="mt-6">
+              <div className="flex items-center justify-between">
                 <h3 className="flex items-center gap-1.5 text-xs font-semibold text-slate-500">
                   <Calendar className="h-3.5 w-3.5" />
                   Interviews
                 </h3>
-                <div className="mt-2 space-y-2">
-                  {app.interviews.map((iv: { id: string; type: string; scheduledAt: Date }) => (
-                    <div
-                      key={iv.id}
-                      className="rounded-lg border border-slate-100 p-2 text-xs"
-                    >
-                      <p className="font-medium text-slate-900">
-                        {iv.type.replace(/_/g, " ")}
-                      </p>
-                      <p className="text-slate-400">
-                        {new Date(iv.scheduledAt).toLocaleString()}
-                      </p>
-                    </div>
-                  ))}
-                </div>
+                {!showInterviewForm && (
+                  <button
+                    onClick={() => { resetInterviewForm(); setShowInterviewForm(true); }}
+                    className="flex items-center gap-1 text-xs font-medium text-slate-600 transition hover:text-slate-900"
+                  >
+                    <Plus className="h-3 w-3" />
+                    Schedule
+                  </button>
+                )}
               </div>
-            )}
 
-            {app.tasks.length > 0 && (
-              <div className="mt-6">
+              {showInterviewForm && (
+                <div className="mt-2 rounded-lg border border-slate-200 p-3 space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <select
+                      value={ivType}
+                      onChange={(e) => setIvType(e.target.value)}
+                      className="rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
+                    >
+                      <option value="PHONE_SCREEN">Phone Screen</option>
+                      <option value="TECHNICAL">Technical</option>
+                      <option value="SYSTEM_DESIGN">System Design</option>
+                      <option value="BEHAVIORAL">Behavioral</option>
+                      <option value="HR">HR</option>
+                      <option value="ONSITE">Onsite</option>
+                      <option value="OTHER">Other</option>
+                    </select>
+                    <input
+                      type="number"
+                      placeholder="Duration (mins)"
+                      value={ivDuration}
+                      onChange={(e) => setIvDuration(e.target.value)}
+                      className="rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
+                    />
+                  </div>
+                  <input
+                    type="datetime-local"
+                    value={ivDate}
+                    onChange={(e) => setIvDate(e.target.value)}
+                    className="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Interviewer name"
+                    value={ivInterviewer}
+                    onChange={(e) => setIvInterviewer(e.target.value)}
+                    className="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
+                  />
+                  <textarea
+                    placeholder="Notes..."
+                    rows={2}
+                    value={ivNotes}
+                    onChange={(e) => setIvNotes(e.target.value)}
+                    className="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
+                  />
+                  <div className="flex justify-end gap-2">
+                    <button onClick={resetInterviewForm} className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs text-slate-600">Cancel</button>
+                    <button
+                      onClick={handleInterviewSubmit}
+                      disabled={createInterviewMutation.isPending || updateInterviewMutation.isPending || !ivDate}
+                      className="rounded-lg bg-slate-900 px-2.5 py-1 text-xs font-medium text-white disabled:opacity-50"
+                    >
+                      {(createInterviewMutation.isPending || updateInterviewMutation.isPending) ? "Saving..." : editingInterviewId ? "Update" : "Schedule"}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className="mt-2 space-y-2">
+                {app.interviews.length === 0 && !showInterviewForm ? (
+                  <p className="text-xs text-slate-400">No interviews scheduled.</p>
+                ) : (
+                  app.interviews.map((iv: { id: string; type: string; scheduledAt: Date; durationMins: number; interviewer: string | null; notes: string | null; outcome: string }) => (
+                    <div key={iv.id} className="rounded-lg border border-slate-100 p-2 text-xs">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <p className="font-medium text-slate-900">{iv.type.replace(/_/g, " ")}</p>
+                            {iv.outcome !== "PENDING" && (
+                              <span className={"rounded px-1.5 py-0.5 text-xs " + (iv.outcome === "PASSED" ? "bg-green-50 text-green-600" : iv.outcome === "FAILED" ? "bg-red-50 text-red-600" : iv.outcome === "CANCELLED" ? "bg-slate-100 text-slate-500" : "bg-amber-50 text-amber-600")}>
+                                {iv.outcome.replace(/_/g, " ").toLowerCase()}
+                              </span>
+                            )}
+                          </div>
+                          <p className="mt-0.5 text-slate-400">
+                            {new Date(iv.scheduledAt).toLocaleString()} - {iv.durationMins}min
+                          </p>
+                          {iv.interviewer && <p className="mt-0.5 text-slate-500">with {iv.interviewer}</p>}
+                          {iv.notes && <p className="mt-1 text-slate-500">{iv.notes}</p>}
+                        </div>
+                        <div className="flex gap-1">
+                          <button
+                            onClick={() => {
+                              setEditingInterviewId(iv.id);
+                              setIvType(iv.type);
+                              setIvDate(new Date(iv.scheduledAt).toISOString().slice(0, 16));
+                              setIvDuration(String(iv.durationMins));
+                              setIvInterviewer(iv.interviewer ?? "");
+                              setIvNotes(iv.notes ?? "");
+                              setShowInterviewForm(true);
+                            }}
+                            className="rounded p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </button>
+                          {iv.outcome === "PENDING" && (
+                            <button
+                              onClick={() => cancelInterviewMutation.mutate({ workspaceId, interviewId: iv.id })}
+                              disabled={cancelInterviewMutation.isPending}
+                              className="rounded p-1 text-slate-400 transition hover:bg-amber-50 hover:text-amber-600"
+                              title="Cancel interview"
+                            >
+                              <XCircle className="h-3 w-3" />
+                            </button>
+                          )}
+                          <button
+                            onClick={() => deleteInterviewMutation.mutate({ workspaceId, interviewId: iv.id })}
+                            disabled={deleteInterviewMutation.isPending}
+                            className="rounded p-1 text-slate-400 transition hover:bg-red-50 hover:text-red-500"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        </div>
+                      </div>
+                      {iv.outcome === "PENDING" && (
+                        <div className="mt-1.5 flex gap-1">
+                          <button
+                            onClick={() => updateInterviewMutation.mutate({ workspaceId, interviewId: iv.id, outcome: "PASSED" })}
+                            className="rounded bg-green-50 px-1.5 py-0.5 text-xs text-green-600 transition hover:bg-green-100"
+                          >Mark passed</button>
+                          <button
+                            onClick={() => updateInterviewMutation.mutate({ workspaceId, interviewId: iv.id, outcome: "FAILED" })}
+                            className="rounded bg-red-50 px-1.5 py-0.5 text-xs text-red-600 transition hover:bg-red-100"
+                          >Mark failed</button>
+                        </div>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* Tasks */}
+            <div className="mt-6">
+              <div className="flex items-center justify-between">
                 <h3 className="flex items-center gap-1.5 text-xs font-semibold text-slate-500">
                   <CheckCircle2 className="h-3.5 w-3.5" />
                   Tasks
                 </h3>
-                <div className="mt-2 space-y-2">
-                  {app.tasks.map((t: { id: string; status: string; title: string; dueAt: Date | null }) => (
+                {!showTaskForm && (
+                  <button
+                    onClick={() => setShowTaskForm(true)}
+                    className="flex items-center gap-1 text-xs font-medium text-slate-600 transition hover:text-slate-900"
+                  >
+                    <Plus className="h-3 w-3" />
+                    Add task
+                  </button>
+                )}
+              </div>
+
+              {showTaskForm && (
+                <div className="mt-2 rounded-lg border border-slate-200 p-3 space-y-2">
+                  <input
+                    type="text"
+                    placeholder="Task title *"
+                    value={taskTitle}
+                    onChange={(e) => setTaskTitle(e.target.value)}
+                    className="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
+                  />
+                  <textarea
+                    placeholder="Description..."
+                    rows={2}
+                    value={taskDesc}
+                    onChange={(e) => setTaskDesc(e.target.value)}
+                    className="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
+                  />
+                  <input
+                    type="datetime-local"
+                    placeholder="Due date"
+                    value={taskDueAt}
+                    onChange={(e) => setTaskDueAt(e.target.value)}
+                    className="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
+                  />
+                  <div className="flex justify-end gap-2">
+                    <button onClick={resetTaskForm} className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs text-slate-600">Cancel</button>
+                    <button
+                      onClick={handleTaskSubmit}
+                      disabled={createTaskMutation.isPending || !taskTitle.trim()}
+                      className="rounded-lg bg-slate-900 px-2.5 py-1 text-xs font-medium text-white disabled:opacity-50"
+                    >
+                      {createTaskMutation.isPending ? "Saving..." : "Add task"}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className="mt-2 space-y-2">
+                {app.tasks.length === 0 && !showTaskForm ? (
+                  <p className="text-xs text-slate-400">No tasks yet.</p>
+                ) : (
+                  app.tasks.map((t: { id: string; status: string; title: string; dueAt: Date | null; description: string | null }) => (
                     <div key={t.id} className="flex items-center gap-2 rounded-lg border border-slate-100 p-2 text-xs">
-                      <span className={"h-2 w-2 rounded-full " + (t.status === "DONE" ? "bg-green-500" : t.status === "IN_PROGRESS" ? "bg-amber-500" : "bg-slate-300")} />
-                      <span className="font-medium text-slate-900">{t.title}</span>
+                      <button
+                        onClick={() => {
+                          const next = t.status === "DONE" ? "OPEN" : t.status === "OPEN" ? "IN_PROGRESS" : "DONE";
+                          updateTaskMutation.mutate({ workspaceId, taskId: t.id, status: next as never });
+                        }}
+                        className={"h-2 w-2 rounded-full transition " + (t.status === "DONE" ? "bg-green-500" : t.status === "IN_PROGRESS" ? "bg-amber-500" : "bg-slate-300 hover:bg-slate-400")}
+                        title="Click to cycle status"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <span className={"font-medium " + (t.status === "DONE" ? "text-slate-400 line-through" : "text-slate-900")}>{t.title}</span>
+                        {t.description && <p className="mt-0.5 text-slate-400">{t.description}</p>}
+                      </div>
                       {t.dueAt && (
-                        <span className="ml-auto flex items-center gap-0.5 text-slate-400">
+                        <span className="flex items-center gap-0.5 text-slate-400">
                           <Clock className="h-3 w-3" />
                           {new Date(t.dueAt).toLocaleDateString()}
                         </span>
                       )}
+                      <button
+                        onClick={() => deleteTaskMutation.mutate({ workspaceId, taskId: t.id })}
+                        disabled={deleteTaskMutation.isPending}
+                        className="rounded p-1 text-slate-400 transition hover:bg-red-50 hover:text-red-500"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
                     </div>
-                  ))}
-                </div>
+                  ))
+                )}
               </div>
-            )}
+            </div>
 
             {/* Outreach */}
             <div className="mt-6">
