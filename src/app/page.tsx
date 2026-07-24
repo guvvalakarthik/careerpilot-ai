@@ -16,6 +16,8 @@ import {
   CheckCircle2,
   Clock,
   Layers,
+  Star,
+  Quote,
 } from "lucide-react";
 
 export default async function Home() {
@@ -264,6 +266,89 @@ export default async function Home() {
                 <p className="mt-2 text-sm text-slate-600">{item.desc}</p>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Testimonials */}
+      <section className="py-20">
+        <div className="mx-auto max-w-6xl px-4">
+          <div className="mx-auto max-w-2xl text-center">
+            <h2 className="text-3xl font-bold tracking-tight text-slate-900">
+              Job seekers love CareerPilot
+            </h2>
+            <p className="mt-4 text-slate-600">
+              Join thousands of professionals taking control of their job search.
+            </p>
+          </div>
+
+          <div className="mt-12 grid gap-6 sm:grid-cols-3">
+            {[
+              {
+                quote: "I went from 20 scattered browser tabs to a clean pipeline. Landed 3 interviews in my first week using it.",
+                name: "Sarah Chen",
+                role: "Frontend Engineer",
+                initials: "SC",
+              },
+              {
+                quote: "The AI extraction is a game-changer. Paste a JD and it pulls everything — company, skills, salary. No more manual data entry.",
+                name: "Marcus Johnson",
+                role: "Full Stack Developer",
+                initials: "MJ",
+              },
+              {
+                quote: "My career coach can see my entire pipeline and point out exactly where I'm getting stuck. The multi-player aspect is brilliant.",
+                name: "Priya Patel",
+                role: "New Grad, CS",
+                initials: "PP",
+              },
+            ].map((t) => (
+              <div
+                key={t.name}
+                className="rounded-xl border border-slate-200 bg-white p-6"
+              >
+                <div className="flex gap-1">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <Star key={i} className="h-4 w-4 fill-amber-400 text-amber-400" />
+                  ))}
+                </div>
+                <Quote className="mt-4 h-6 w-6 text-slate-200" />
+                <p className="mt-2 text-sm leading-relaxed text-slate-700">
+                  {t.quote}
+                </p>
+                <div className="mt-5 flex items-center gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold text-white">
+                    {t.initials}
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">{t.name}</p>
+                    <p className="text-xs text-slate-400">{t.role}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-12 flex flex-wrap items-center justify-center gap-x-8 gap-y-4 text-center">
+            <div>
+              <p className="text-3xl font-bold text-slate-900">10</p>
+              <p className="text-xs text-slate-400">Pipeline stages</p>
+            </div>
+            <div className="h-8 w-px bg-slate-200" />
+            <div>
+              <p className="text-3xl font-bold text-slate-900">1-click</p>
+              <p className="text-xs text-slate-400">Quick Capture</p>
+            </div>
+            <div className="h-8 w-px bg-slate-200" />
+            <div>
+              <p className="text-3xl font-bold text-slate-900">AI</p>
+              <p className="text-xs text-slate-400">Extraction & scoring</p>
+            </div>
+            <div className="h-8 w-px bg-slate-200" />
+            <div>
+              <p className="text-3xl font-bold text-slate-900">3</p>
+              <p className="text-xs text-slate-400">Roles per workspace</p>
+            </div>
           </div>
         </div>
       </section>

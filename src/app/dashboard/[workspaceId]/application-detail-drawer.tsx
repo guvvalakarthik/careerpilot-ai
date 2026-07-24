@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X, Building2, Star, Clock, MapPin, ExternalLink, Calendar, CheckCircle2, GitBranch } from "lucide-react";
+import { X, Building2, Star, Clock, MapPin, ExternalLink, Calendar, CheckCircle2, GitBranch, Sparkles, Zap } from "lucide-react";
 import { api } from "@/trpc/react";
 
 const stageLabels: Record<string, string> = {
@@ -52,6 +52,20 @@ export function ApplicationDetailDrawer({
       utils.application.list.invalidate({ workspaceId });
       utils.application.get.invalidate({ workspaceId, applicationId });
       setNote("");
+    },
+  });
+
+  const extractMutation = api.ai.extractJob.useMutation({
+    onSuccess: () => {
+      utils.application.list.invalidate({ workspaceId });
+      utils.application.get.invalidate({ workspaceId, applicationId });
+    },
+  });
+
+  const fitScoreMutation = api.ai.fitScore.useMutation({
+    onSuccess: () => {
+      utils.application.list.invalidate({ workspaceId });
+      utils.application.get.invalidate({ workspaceId, applicationId });
     },
   });
 
@@ -144,6 +158,127 @@ export function ApplicationDetailDrawer({
                 <ExternalLink className="h-3.5 w-3.5" />
                 View source
               </a>
+            )}
+
+            {/* AI Actions */}
+            <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <h3 className="flex items-center gap-1.5 text-xs font-semibold text-slate-700">
+                <Sparkles className="h-3.5 w-3.5 text-violet-500" />
+                AI Tools
+              </h3>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  onClick={() => extractMutation.mutate({ workspaceId, opportunityId: app.opportunity.id })}
+                  disabled={extractMutation.isPending || fitScoreMutation.isPending}
+                  className="flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-100 disabled:opacity-50"
+                >
+                  <Zap className="h-3 w-3 text-amber-500" />
+                  {extractMutation.isPending ? "Extracting..." : "Extract Details"}
+                </button>
+                <button
+                  onClick={() => fitScoreMutation.mutate({ workspaceId, applicationId })}
+                  disabled={extractMutation.isPending || fitScoreMutation.isPending}
+                  className="flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-100 disabled:opacity-50"
+                >
+                  <Star className="h-3 w-3 text-amber-500" />
+                  {fitScoreMutation.isPending ? "Scoring..." : "Score Fit"}
+                </button>
+              </div>
+
+              {extractMutation.error && (
+                <p className="mt-2 text-xs text-red-500">{extractMutation.error.message}</p>
+              )}
+              {fitScoreMutation.error && (
+                <p className="mt-2 text-xs text-red-500">{fitScoreMutation.error.message}</p>
+              )}
+              {extractMutation.isSuccess && (
+                <p className="mt-2 text-xs text-green-600">Job details extracted successfully.</p>
+              )}
+              {fitScoreMutation.isSuccess && app.fitScore !== null && (
+                <div className="mt-2 rounded-lg bg-white p-2">
+                  <div className="flex items-center gap-2">
+                    <span className={`text-lg font-bold ${
+                      app.fitScore >= 70 ? "text-green-600" : app.fitScore >= 40 ? "text-yellow-600" : "text-red-600"
+                    }`}>
+                      {app.fitScore}
+                    </span>
+                    <span className="text-xs text-slate-400">/ 100 fit score</span>
+                  </div>
+                  {app.fitReasons && Array.isArray(app.fitReasons) && (
+                    <ul className="mt-1.5 space-y-1">
+                      {(app.fitReasons as unknown as string[]).map((reason: string, i: number) => (
+                        <li key={i} className="text-xs text-slate-600">• {reason}</li>
+                      ))}
+                    </ul>
+                  )}
+                  {app.missingSkills.length > 0 && (
+                    <div className="mt-2">
+                      <p className="text-xs font-medium text-slate-500">Missing skills:</p>
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {app.missingSkills.map((s: string) => (
+                          <span key={s} className="rounded bg-red-50 px-1.5 py-0.5 text-xs text-red-600">{s}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Extracted details */}
+            {(app.opportunity.location || app.opportunity.salaryRange || app.opportunity.employmentType || app.opportunity.experienceRequired) && (
+              <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
+                {app.opportunity.location && (
+                  <div className="rounded-lg bg-slate-50 p-2">
+                    <p className="text-slate-400">Location</p>
+                    <p className="font-medium text-slate-700">{app.opportunity.location}</p>
+                  </div>
+                )}
+                {app.opportunity.employmentType && (
+                  <div className="rounded-lg bg-slate-50 p-2">
+                    <p className="text-slate-400">Type</p>
+                    <p className="font-medium text-slate-700">{app.opportunity.employmentType}</p>
+                  </div>
+                )}
+                {app.opportunity.salaryRange && (
+                  <div className="rounded-lg bg-slate-50 p-2">
+                    <p className="text-slate-400">Salary</p>
+                    <p className="font-medium text-slate-700">{app.opportunity.salaryRange}</p>
+                  </div>
+                )}
+                {app.opportunity.experienceRequired && (
+                  <div className="rounded-lg bg-slate-50 p-2">
+                    <p className="text-slate-400">Experience</p>
+                    <p className="font-medium text-slate-700">{app.opportunity.experienceRequired}</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Skills */}
+            {(app.opportunity.requiredSkills.length > 0 || app.opportunity.preferredSkills.length > 0) && (
+              <div className="mt-4">
+                {app.opportunity.requiredSkills.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-slate-500">Required Skills</p>
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {app.opportunity.requiredSkills.map((s: string) => (
+                        <span key={s} className="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-700">{s}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {app.opportunity.preferredSkills.length > 0 && (
+                  <div className="mt-2">
+                    <p className="text-xs font-semibold text-slate-500">Preferred Skills</p>
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {app.opportunity.preferredSkills.map((s: string) => (
+                        <span key={s} className="rounded bg-slate-50 px-1.5 py-0.5 text-xs text-slate-500">{s}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
 
             {app.opportunity.rawInput && (

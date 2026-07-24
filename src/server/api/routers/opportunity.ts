@@ -2,6 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, workspaceProcedure, requireRole } from "@/server/api/trpc";
 import { recordAudit } from "@/server/api/audit";
+import { extractJobData, isAIConfigured } from "@/server/ai";
 
 export const opportunityRouter = createTRPCRouter({
   list: workspaceProcedure
@@ -85,6 +86,71 @@ export const opportunityRouter = createTRPCRouter({
         },
       });
 
+      // Auto-extract with AI if configured and no manual company/title provided
+      let extracted = false;
+      if (isAIConfigured() && !input.companyName && !input.title) {
+        try {
+          const result = await extractJobData(input.rawInput);
+          if (result) {
+            let companyId = company?.id ?? null;
+            if (result.company && !companyId) {
+              const existing = await ctx.db.company.findFirst({
+                where: { workspaceId: ctx.workspaceId, name: { equals: result.company, mode: "insensitive" } },
+              });
+              if (existing) {
+                companyId = existing.id;
+              } else {
+                const newCompany = await ctx.db.company.create({
+                  data: { workspaceId: ctx.workspaceId, name: result.company },
+                });
+                companyId = newCompany.id;
+              }
+            }
+
+            await ctx.db.jobOpportunity.update({
+              where: { id: opportunity.id },
+              data: {
+                companyId,
+                title: result.title ?? opportunity.title,
+                location: result.location,
+                employmentType: result.employmentType,
+                salaryRange: result.salaryRange,
+                experienceRequired: result.experienceRequired,
+                requiredSkills: result.requiredSkills,
+                preferredSkills: result.preferredSkills,
+                applicationDeadline: result.applicationDeadline ? new Date(result.applicationDeadline) : null,
+                extractedAt: new Date(),
+              },
+            });
+
+            await ctx.db.aiRun.create({
+              data: {
+                workspaceId: ctx.workspaceId,
+                userId: ctx.userId,
+                type: "JOB_EXTRACTION",
+                status: "SUCCEEDED",
+                inputSummary: input.rawInput.slice(0, 200),
+                output: result as unknown as object,
+              },
+            });
+
+            extracted = true;
+          }
+        } catch (err) {
+          console.error("Auto-extraction in quickCapture failed:", err);
+          await ctx.db.aiRun.create({
+            data: {
+              workspaceId: ctx.workspaceId,
+              userId: ctx.userId,
+              type: "JOB_EXTRACTION",
+              status: "FAILED",
+              inputSummary: input.rawInput.slice(0, 200),
+              errorMessage: err instanceof Error ? err.message : "Unknown error",
+            },
+          }).catch(() => {});
+        }
+      }
+
       await recordAudit({
         db: ctx.db,
         workspaceId: ctx.workspaceId,
@@ -99,7 +165,7 @@ export const opportunityRouter = createTRPCRouter({
         },
       });
 
-      return { opportunity, application };
+      return { opportunity, application, extracted };
     }),
 
   update: requireRole(["OWNER", "COACH", "SEEKER"])

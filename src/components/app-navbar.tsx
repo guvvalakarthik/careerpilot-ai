@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Rocket, LogOut } from "lucide-react";
+import { Rocket, LogOut, User } from "lucide-react";
 import { auth, signOut } from "@/server/auth";
 
 export async function AppNavbar() {
@@ -19,15 +19,24 @@ export async function AppNavbar() {
 
         <div className="flex items-center gap-4">
           {session?.user && (
-            <div className="hidden items-center gap-2 sm:flex">
-              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-xs font-medium text-slate-600">
-                {session.user.name?.[0]?.toUpperCase() ??
-                  session.user.email?.[0]?.toUpperCase()}
+            <>
+              <Link
+                href="/dashboard/profile"
+                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
+              >
+                <User className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Profile</span>
+              </Link>
+              <div className="hidden items-center gap-2 sm:flex">
+                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-xs font-medium text-slate-600">
+                  {session.user.name?.[0]?.toUpperCase() ??
+                    session.user.email?.[0]?.toUpperCase()}
+                </div>
+                <span className="text-sm text-slate-600">
+                  {session.user.name ?? session.user.email}
+                </span>
               </div>
-              <span className="text-sm text-slate-600">
-                {session.user.name ?? session.user.email}
-              </span>
-            </div>
+            </>
           )}
           <form
             action={async () => {

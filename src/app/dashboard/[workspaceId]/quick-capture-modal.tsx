@@ -24,7 +24,7 @@ export function QuickCaptureModal({ workspaceId }: { workspaceId: string }) {
       setCompanyName("");
       setTitle("");
       setError(null);
-      setSuccess("Captured! Added to your pipeline.");
+      setSuccess("Captured! AI extracted job details. Added to your pipeline.");
       setTimeout(() => {
         setSuccess(null);
         setOpen(false);
@@ -83,7 +83,7 @@ export function QuickCaptureModal({ workspaceId }: { workspaceId: string }) {
             </div>
 
             <p className="mt-1 text-xs text-slate-400">
-              Paste a job URL or job description. AI extraction comes in Week 2 — for now it&apos;s saved as-is.
+              Paste a job URL or job description. AI auto-extracts company, title, skills, and more.
             </p>
 
             <div className="mt-4 flex gap-2">
