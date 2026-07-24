@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { api } from "@/trpc/react";
-import { Building2, ExternalLink, Star, Clock } from "lucide-react";
+import { Building2, ExternalLink, Star, Clock, DollarSign, CheckSquare, MessageSquare } from "lucide-react";
 
 type Stage =
   | "CAPTURED"
@@ -40,8 +40,11 @@ type Application = {
     title: string | null;
     sourceUrl: string | null;
     location: string | null;
+    salaryRange: string | null;
     company: { id: string; name: string } | null;
   };
+  tasks: { id: string; status: string }[];
+  outreach: { id: string }[];
 };
 
 export function KanbanBoard({
@@ -166,6 +169,12 @@ export function KanbanBoard({
                     {app.opportunity.location && (
                       <span>{app.opportunity.location}</span>
                     )}
+                    {app.opportunity.salaryRange && (
+                      <span className="flex items-center gap-0.5 text-slate-500">
+                        <DollarSign className="h-3 w-3" />
+                        {app.opportunity.salaryRange}
+                      </span>
+                    )}
                     {app.opportunity.sourceUrl && (
                       <a
                         href={app.opportunity.sourceUrl}
@@ -185,6 +194,24 @@ export function KanbanBoard({
                       </span>
                     )}
                   </div>
+
+                  {/* Indicators: tasks + outreach */}
+                  {(app.tasks.length > 0 || app.outreach.length > 0) && (
+                    <div className="mt-2 flex items-center gap-2 border-t border-slate-100 pt-2 text-xs">
+                      {app.tasks.length > 0 && (
+                        <span className="flex items-center gap-0.5 text-slate-500">
+                          <CheckSquare className="h-3 w-3" />
+                          {app.tasks.filter((t) => t.status !== "DONE").length} open
+                        </span>
+                      )}
+                      {app.outreach.length > 0 && (
+                        <span className="flex items-center gap-0.5 text-slate-500">
+                          <MessageSquare className="h-3 w-3" />
+                          {app.outreach.length}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
 

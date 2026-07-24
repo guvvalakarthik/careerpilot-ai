@@ -39,6 +39,8 @@ export const applicationRouter = createTRPCRouter({
       z.object({
         workspaceId: z.string(),
         stage: stageEnum.optional(),
+        search: z.string().optional(),
+        companyId: z.string().optional(),
       }),
     )
     .query(async ({ ctx, input }) => {
@@ -46,11 +48,23 @@ export const applicationRouter = createTRPCRouter({
         where: {
           workspaceId: ctx.workspaceId,
           ...(input.stage ? { stage: input.stage } : {}),
+          ...(input.companyId ? { opportunity: { companyId: input.companyId } } : {}),
+          ...(input.search
+            ? {
+                OR: [
+                  { opportunity: { title: { contains: input.search, mode: "insensitive" } } },
+                  { opportunity: { company: { name: { contains: input.search, mode: "insensitive" } } } },
+                  { opportunity: { location: { contains: input.search, mode: "insensitive" } } },
+                ],
+              }
+            : {}),
         },
         include: {
           opportunity: {
             include: { company: true },
           },
+          tasks: { select: { id: true, status: true } },
+          outreach: { select: { id: true } },
         },
         orderBy: { lastStageAt: "desc" },
       });

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X, Building2, Star, Clock, MapPin, ExternalLink, Calendar, CheckCircle2, GitBranch, Sparkles, Zap } from "lucide-react";
+import { X, Building2, Star, Clock, MapPin, ExternalLink, Calendar, CheckCircle2, GitBranch, Sparkles, Zap, MessageSquare, Send, Plus } from "lucide-react";
 import { api } from "@/trpc/react";
 
 const stageLabels: Record<string, string> = {
@@ -40,6 +40,10 @@ export function ApplicationDetailDrawer({
   onClose: () => void;
 }) {
   const [note, setNote] = useState("");
+  const [showOutreachForm, setShowOutreachForm] = useState(false);
+  const [outreachSubject, setOutreachSubject] = useState("");
+  const [outreachBody, setOutreachBody] = useState("");
+  const [outreachContactId, setOutreachContactId] = useState("");
   const utils = api.useUtils();
 
   const { data: app, isLoading } = api.application.get.useQuery({
@@ -65,6 +69,25 @@ export function ApplicationDetailDrawer({
   const fitScoreMutation = api.ai.fitScore.useMutation({
     onSuccess: () => {
       utils.application.list.invalidate({ workspaceId });
+      utils.application.get.invalidate({ workspaceId, applicationId });
+    },
+  });
+
+  const { data: contacts } = api.contact.list.useQuery({ workspaceId });
+
+  const createOutreachMutation = api.contact.createOutreach.useMutation({
+    onSuccess: () => {
+      utils.application.get.invalidate({ workspaceId, applicationId });
+      utils.contact.list.invalidate({ workspaceId });
+      setShowOutreachForm(false);
+      setOutreachSubject("");
+      setOutreachBody("");
+      setOutreachContactId("");
+    },
+  });
+
+  const markSentMutation = api.contact.markSent.useMutation({
+    onSuccess: () => {
       utils.application.get.invalidate({ workspaceId, applicationId });
     },
   });
@@ -330,7 +353,7 @@ export function ApplicationDetailDrawer({
                 {app.decisions.length === 0 ? (
                   <p className="text-xs text-slate-400">No stage changes yet.</p>
                 ) : (
-                  app.decisions.map((d) => (
+                  app.decisions.map((d: { id: string; fromStage: string; toStage: string; note: string | null; createdAt: Date }) => (
                     <div
                       key={d.id}
                       className="flex items-start gap-2 rounded-lg border border-slate-100 p-2"
@@ -369,7 +392,7 @@ export function ApplicationDetailDrawer({
                   Interviews
                 </h3>
                 <div className="mt-2 space-y-2">
-                  {app.interviews.map((iv) => (
+                  {app.interviews.map((iv: { id: string; type: string; scheduledAt: Date }) => (
                     <div
                       key={iv.id}
                       className="rounded-lg border border-slate-100 p-2 text-xs"
@@ -393,20 +416,9 @@ export function ApplicationDetailDrawer({
                   Tasks
                 </h3>
                 <div className="mt-2 space-y-2">
-                  {app.tasks.map((t) => (
-                    <div
-                      key={t.id}
-                      className="flex items-center gap-2 rounded-lg border border-slate-100 p-2 text-xs"
-                    >
-                      <span
-                        className={`h-2 w-2 rounded-full ${
-                          t.status === "DONE"
-                            ? "bg-green-500"
-                            : t.status === "IN_PROGRESS"
-                              ? "bg-amber-500"
-                              : "bg-slate-300"
-                        }`}
-                      />
+                  {app.tasks.map((t: { id: string; status: string; title: string; dueAt: Date | null }) => (
+                    <div key={t.id} className="flex items-center gap-2 rounded-lg border border-slate-100 p-2 text-xs">
+                      <span className={"h-2 w-2 rounded-full " + (t.status === "DONE" ? "bg-green-500" : t.status === "IN_PROGRESS" ? "bg-amber-500" : "bg-slate-300")} />
                       <span className="font-medium text-slate-900">{t.title}</span>
                       {t.dueAt && (
                         <span className="ml-auto flex items-center gap-0.5 text-slate-400">
@@ -419,6 +431,123 @@ export function ApplicationDetailDrawer({
                 </div>
               </div>
             )}
+
+            {/* Outreach */}
+            <div className="mt-6">
+              <div className="flex items-center justify-between">
+                <h3 className="flex items-center gap-1.5 text-xs font-semibold text-slate-500">
+                  <MessageSquare className="h-3.5 w-3.5" />
+                  Outreach
+                </h3>
+                {!showOutreachForm && (
+                  <button
+                    onClick={() => setShowOutreachForm(true)}
+                    className="flex items-center gap-1 text-xs font-medium text-slate-600 transition hover:text-slate-900"
+                  >
+                    <Plus className="h-3 w-3" />
+                    Add message
+                  </button>
+                )}
+              </div>
+
+              {showOutreachForm && (
+                <div className="mt-2 rounded-lg border border-slate-200 p-3">
+                  <select
+                    value={outreachContactId}
+                    onChange={(e) => setOutreachContactId(e.target.value)}
+                    className="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
+                  >
+                    <option value="">Select a contact...</option>
+                    {contacts?.map((c: { id: string; name: string }) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                  <input
+                    type="text"
+                    placeholder="Subject"
+                    value={outreachSubject}
+                    onChange={(e) => setOutreachSubject(e.target.value)}
+                    className="mt-2 w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
+                  />
+                  <textarea
+                    placeholder="Message body..."
+                    rows={3}
+                    value={outreachBody}
+                    onChange={(e) => setOutreachBody(e.target.value)}
+                    className="mt-2 w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
+                  />
+                  <div className="mt-2 flex justify-end gap-2">
+                    <button
+                      onClick={() => setShowOutreachForm(false)}
+                      className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs text-slate-600"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (!outreachContactId || !outreachBody.trim()) return;
+                        createOutreachMutation.mutate({
+                          workspaceId,
+                          contactId: outreachContactId,
+                          applicationId,
+                          subject: outreachSubject.trim() || null,
+                          body: outreachBody.trim(),
+                        });
+                      }}
+                      disabled={createOutreachMutation.isPending || !outreachContactId || !outreachBody.trim()}
+                      className="rounded-lg bg-slate-900 px-2.5 py-1 text-xs font-medium text-white disabled:opacity-50"
+                    >
+                      {createOutreachMutation.isPending ? "Saving..." : "Save"}
+                    </button>
+                  </div>
+                  {createOutreachMutation.error && (
+                    <p className="mt-1 text-xs text-red-500">{createOutreachMutation.error.message}</p>
+                  )}
+                </div>
+              )}
+
+              <div className="mt-2 space-y-2">
+                {app.outreach.length === 0 && !showOutreachForm ? (
+                  <p className="text-xs text-slate-400">No outreach messages yet.</p>
+                ) : (
+                  app.outreach.map((o) => (
+                    <div key={o.id} className="rounded-lg border border-slate-100 p-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-medium text-slate-900">
+                            {o.contact.name}
+                          </p>
+                          {o.subject && (
+                            <p className="text-xs text-slate-600">{o.subject}</p>
+                          )}
+                          <p className="mt-0.5 line-clamp-2 text-xs text-slate-500">{o.body}</p>
+                        </div>
+                        <div className="flex flex-col items-end gap-1">
+                          {o.sentAt ? (
+                            <span className="flex items-center gap-0.5 rounded bg-green-50 px-1.5 py-0.5 text-xs text-green-600">
+                              <Send className="h-2.5 w-2.5" />
+                              Sent
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => markSentMutation.mutate({ workspaceId, outreachId: o.id })}
+                              disabled={markSentMutation.isPending}
+                              className="flex items-center gap-0.5 rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-600 transition hover:bg-slate-200"
+                            >
+                              <Send className="h-2.5 w-2.5" />
+                              Mark sent
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      <p className="mt-1 text-xs text-slate-400">
+                        {new Date(o.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
           </div>
         ) : (
           <div className="flex h-full items-center justify-center text-slate-400">
