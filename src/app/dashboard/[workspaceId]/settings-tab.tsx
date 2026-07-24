@@ -54,8 +54,8 @@ export function SettingsTab({
     <div className="space-y-6">
       {isOwner ? (
         <>
-          <div className="rounded-xl border border-gray-200 p-5">
-            <h3 className="font-semibold">Rename Workspace</h3>
+          <div className="rounded-xl border border-slate-200 bg-white p-5">
+            <h3 className="font-semibold text-slate-900">Rename Workspace</h3>
             <form onSubmit={handleRename} className="mt-4 flex gap-3">
               <input
                 type="text"
@@ -65,28 +65,28 @@ export function SettingsTab({
                 placeholder="New workspace name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                className="flex-1 rounded-lg border border-slate-300 px-3.5 py-2 text-sm transition focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
               />
               <button
                 type="submit"
                 disabled={updateMutation.isPending}
-                className="flex items-center gap-1.5 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                className="flex items-center gap-1.5 rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50"
               >
                 <Save className="h-4 w-4" />
                 {updateMutation.isPending ? "Saving..." : "Save"}
               </button>
             </form>
             {nameError && (
-              <p className="mt-2 text-sm text-red-600">{nameError}</p>
+              <div className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{nameError}</div>
             )}
             {nameSuccess && (
-              <p className="mt-2 text-sm text-green-600">
+              <div className="mt-2 rounded-lg bg-green-50 px-3 py-2 text-sm text-green-600">
                 Workspace renamed successfully!
-              </p>
+              </div>
             )}
           </div>
 
-          <div className="rounded-xl border border-red-200 p-5">
+          <div className="rounded-xl border border-red-200 bg-white p-5">
             <h3 className="flex items-center gap-2 font-semibold text-red-700">
               <AlertTriangle className="h-4 w-4" />
               Danger Zone
@@ -101,7 +101,7 @@ export function SettingsTab({
                 </p>
               </div>
               <select
-                className="rounded-md border border-red-300 px-3 py-1.5 text-xs focus:outline-none"
+                className="rounded-lg border border-red-300 px-3 py-1.5 text-xs focus:outline-none"
                 onChange={(e) => {
                   if (e.target.value && confirm("Transfer ownership to this member?")) {
                     utils.client.workspace.changeRole.mutate({
@@ -138,7 +138,7 @@ export function SettingsTab({
               </div>
               <button
                 disabled
-                className="rounded-md border border-red-300 px-4 py-1.5 text-xs font-medium text-red-600 opacity-50"
+                className="rounded-lg border border-red-300 px-4 py-1.5 text-xs font-medium text-red-600 opacity-50"
                 title="Coming soon"
               >
                 Delete
@@ -147,8 +147,8 @@ export function SettingsTab({
           </div>
         </>
       ) : (
-        <div className="rounded-xl border border-gray-200 p-8 text-center">
-          <p className="text-sm text-gray-400">
+        <div className="rounded-xl border border-slate-200 bg-white p-8 text-center">
+          <p className="text-sm text-slate-400">
             Only the workspace owner can manage settings.
           </p>
         </div>

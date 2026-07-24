@@ -1,9 +1,16 @@
 import { redirect } from "next/navigation";
-import { auth, signOut } from "@/server/auth";
+import { auth } from "@/server/auth";
 import { db } from "@/server/db";
 import Link from "next/link";
-import { Building2, Briefcase, Users, ArrowRight, LogOut } from "lucide-react";
+import { Building2, Briefcase, ArrowRight, Crown, Shield, GraduationCap } from "lucide-react";
+import { AppNavbar } from "@/components/app-navbar";
 import { CreateWorkspaceModal } from "./create-workspace-modal";
+
+const roleBadge: Record<string, { icon: typeof Crown; className: string; label: string }> = {
+  OWNER: { icon: Crown, className: "bg-violet-50 text-violet-700", label: "Owner" },
+  COACH: { icon: Shield, className: "bg-blue-50 text-blue-700", label: "Coach" },
+  SEEKER: { icon: GraduationCap, className: "bg-slate-100 text-slate-600", label: "Seeker" },
+};
 
 export default async function DashboardPage() {
   const session = await auth();
@@ -16,88 +23,88 @@ export default async function DashboardPage() {
   });
 
   return (
-    <main className="mx-auto w-full max-w-5xl px-4 py-10">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Dashboard</h1>
-          <p className="text-sm text-gray-500">
-            Signed in as {session.user.email}
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <CreateWorkspaceModal />
-          <form
-            action={async () => {
-              "use server";
-              await signOut({ redirectTo: "/login" });
-            }}
-          >
-            <button
-              type="submit"
-              className="flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50"
-            >
-              <LogOut className="h-4 w-4" />
-              Sign out
-            </button>
-          </form>
-        </div>
-      </div>
+    <div className="min-h-screen bg-slate-50">
+      <AppNavbar />
 
-      <section className="mt-8">
-        <h2 className="text-lg font-semibold">Your workspaces</h2>
-
-        {memberships.length === 0 ? (
-          <div className="mt-4 rounded-xl border border-dashed border-gray-300 p-8 text-center">
-            <Building2 className="mx-auto h-10 w-10 text-gray-300" />
-            <p className="mt-3 text-sm text-gray-500">
-              No workspaces yet. Create one to start tracking your job search.
+      <main className="mx-auto w-full max-w-5xl px-4 py-10">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+              Workspaces
+            </h1>
+            <p className="mt-1 text-sm text-slate-500">
+              {memberships.length === 0
+                ? "Create your first workspace to get started."
+                : `${memberships.length} workspace${memberships.length > 1 ? "s" : ""}`}
             </p>
           </div>
-        ) : (
-          <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {memberships.map((m) => (
-              <Link
-                key={m.id}
-                href={`/dashboard/${m.workspace.id}`}
-                className="group rounded-xl border border-gray-200 p-5 transition hover:border-blue-300 hover:shadow-md"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50">
-                      <Briefcase className="h-5 w-5 text-blue-600" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold leading-tight">
-                        {m.workspace.name}
-                      </h3>
-                      <p className="text-xs text-gray-400">
-                        /{m.workspace.slug}
-                      </p>
-                    </div>
-                  </div>
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                      m.role === "OWNER"
-                        ? "bg-purple-50 text-purple-700"
-                        : m.role === "COACH"
-                          ? "bg-blue-50 text-blue-700"
-                          : "bg-gray-100 text-gray-600"
-                    }`}
-                  >
-                    {m.role}
-                  </span>
-                </div>
+          <CreateWorkspaceModal />
+        </div>
 
-                <div className="mt-4 flex items-center gap-2 text-xs text-gray-400">
-                  <Users className="h-3.5 w-3.5" />
-                  <span>Open workspace</span>
-                  <ArrowRight className="ml-auto h-3.5 w-3.5 transition group-hover:translate-x-0.5" />
-                </div>
-              </Link>
-            ))}
-          </div>
-        )}
-      </section>
-    </main>
+        <section className="mt-8">
+          {memberships.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100">
+                <Building2 className="h-7 w-7 text-slate-400" />
+              </div>
+              <h3 className="mt-4 font-semibold text-slate-900">No workspaces yet</h3>
+              <p className="mx-auto mt-1 max-w-sm text-sm text-slate-500">
+                A workspace is your private hub for tracking job applications.
+                Create one to start building your pipeline.
+              </p>
+              <div className="mt-5">
+                <CreateWorkspaceModal />
+              </div>
+            </div>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {memberships.map((m) => {
+                const badge = roleBadge[m.role] ?? roleBadge.SEEKER;
+                const RoleIcon = badge.icon;
+                return (
+                  <Link
+                    key={m.id}
+                    href={`/dashboard/${m.workspace.id}`}
+                    className="group rounded-xl border border-slate-200 bg-white p-5 transition hover:border-slate-300 hover:shadow-md"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-900">
+                          <Briefcase className="h-5 w-5 text-white" />
+                        </div>
+                        <div>
+                          <h3 className="font-semibold leading-tight text-slate-900">
+                            {m.workspace.name}
+                          </h3>
+                          <p className="text-xs text-slate-400">
+                            {m.workspace.slug}
+                          </p>
+                        </div>
+                      </div>
+                      <span
+                        className={`flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${badge.className}`}
+                      >
+                        <RoleIcon className="h-3 w-3" />
+                        {badge.label}
+                      </span>
+                    </div>
+
+                    <div className="mt-5 flex items-center text-xs text-slate-400">
+                      <span>Open workspace</span>
+                      <ArrowRight className="ml-auto h-3.5 w-3.5 transition group-hover:translate-x-0.5 group-hover:text-slate-600" />
+                    </div>
+                  </Link>
+                );
+              })}
+
+              {/* Create new card */}
+              <div className="flex min-h-[120px] items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white/50">
+                <CreateWorkspaceModal />
+              </div>
+            </div>
+          )}
+        </section>
+      </main>
+    </div>
   );
 }

@@ -75,8 +75,8 @@ export function WorkspaceTabs({
               onClick={() => setTab(t.id)}
               className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition ${
                 tab === t.id
-                  ? "border-blue-600 text-blue-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700"
+                  ? "border-slate-900 text-slate-900"
+                  : "border-transparent text-slate-500 hover:text-slate-700"
               }`}
             >
               <Icon className="h-4 w-4" />
@@ -95,7 +95,7 @@ export function WorkspaceTabs({
               return (
                 <div
                   key={card.key}
-                  className="rounded-xl border border-gray-200 p-5"
+                  className="rounded-xl border border-slate-200 bg-white p-5"
                 >
                   <div className="flex items-center gap-3">
                     <div
