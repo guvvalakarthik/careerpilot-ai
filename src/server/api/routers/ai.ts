@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, workspaceProcedure, requireRole } from "@/server/api/trpc";
-import { extractJobData, calculateFitScore, isAIConfigured } from "@/server/ai";
+import { extractJobData, calculateFitScore, isAIConfigured, assistantChat, type ChatMessage } from "@/server/ai";
 import { recordAudit } from "@/server/api/audit";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -186,5 +186,111 @@ export const aiRouter = createTRPCRouter({
       });
 
       return { application: updated, result };
+    }),
+
+  assistantChat: requireRole(["OWNER", "COACH", "SEEKER"])
+    .input(
+      z.object({
+        workspaceId: z.string(),
+        messages: z.array(
+          z.object({
+            role: z.enum(["user", "model"]),
+            content: z.string().min(1).max(4000),
+          }),
+        ).min(1).max(20),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      if (!isAIConfigured()) {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "AI is not configured. Set GOOGLE_GENERATIVE_AI_API_KEY." });
+      }
+
+      // Build context from workspace data
+      const [applications, interviews, contacts, tasks] = await Promise.all([
+        ctx.db.application.findMany({
+          where: { workspaceId: ctx.workspaceId },
+          include: { opportunity: { include: { company: true } } },
+          orderBy: { updatedAt: "desc" },
+          take: 20,
+        }),
+        ctx.db.interview.findMany({
+          where: { workspaceId: ctx.workspaceId, outcome: "PENDING" },
+          include: { application: { include: { opportunity: { include: { company: true } } } } },
+          orderBy: { scheduledAt: "asc" },
+          take: 10,
+        }),
+        ctx.db.contact.findMany({
+          where: { workspaceId: ctx.workspaceId },
+          include: { company: true },
+          take: 15,
+        }),
+        ctx.db.task.findMany({
+          where: { workspaceId: ctx.workspaceId, status: { in: ["OPEN", "IN_PROGRESS"] } },
+          include: { application: { include: { opportunity: true } } },
+          orderBy: { dueAt: "asc" },
+          take: 10,
+        }),
+      ]);
+
+      const contextParts: string[] = [];
+
+      contextParts.push("=== APPLICATIONS ===");
+      for (const app of applications) {
+        const company = app.opportunity.company?.name ?? "Unknown";
+        const title = app.opportunity.title ?? "Untitled";
+        contextParts.push(`- ${title} at ${company} | Stage: ${app.stage} | Fit: ${app.fitScore ?? "N/A"} | Applied: ${app.appliedAt ? new Date(app.appliedAt).toLocaleDateString() : "Not yet"} | Last stage change: ${new Date(app.lastStageAt).toLocaleDateString()}`);
+      }
+
+      contextParts.push("\n=== UPCOMING INTERVIEWS ===");
+      for (const iv of interviews) {
+        const company = iv.application.opportunity.company?.name ?? "Unknown";
+        const title = iv.application.opportunity.title ?? "Untitled";
+        contextParts.push(`- ${iv.type.replace(/_/g, " ")} at ${company} for ${title} on ${new Date(iv.scheduledAt).toLocaleString()} | Interviewer: ${iv.interviewer ?? "TBD"}`);
+      }
+
+      contextParts.push("\n=== CONTACTS ===");
+      for (const c of contacts) {
+        contextParts.push(`- ${c.name} | ${c.role ?? "Unknown role"} | ${c.company?.name ?? "Unknown company"} | Email: ${c.email ?? "N/A"}`);
+      }
+
+      contextParts.push("\n=== OPEN TASKS ===");
+      for (const t of tasks) {
+        const appInfo = t.application?.opportunity?.title ? ` (${t.application.opportunity.title})` : "";
+        contextParts.push(`- ${t.title}${appInfo} | Due: ${t.dueAt ? new Date(t.dueAt).toLocaleDateString() : "No deadline"} | Status: ${t.status}`);
+      }
+
+      const context = contextParts.join("\n");
+
+      const aiRun = await ctx.db.aiRun.create({
+        data: {
+          workspaceId: ctx.workspaceId,
+          userId: ctx.userId,
+          type: "ASSISTANT_CHAT",
+          status: "RUNNING",
+          inputSummary: input.messages[input.messages.length - 1].content.slice(0, 200),
+        },
+      });
+
+      const startTime = Date.now();
+      const response = await assistantChat(input.messages as ChatMessage[], context);
+
+      if (!response) {
+        await ctx.db.aiRun.update({
+          where: { id: aiRun.id },
+          data: { status: "FAILED", errorMessage: "Chat returned null", latencyMs: Date.now() - startTime },
+        });
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "AI chat failed" });
+      }
+
+      await ctx.db.aiRun.update({
+        where: { id: aiRun.id },
+        data: {
+          status: "SUCCEEDED",
+          output: { response } as PrismaJson,
+          latencyMs: Date.now() - startTime,
+        },
+      });
+
+      return { response };
     }),
 });

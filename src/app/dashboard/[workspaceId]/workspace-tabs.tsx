@@ -14,6 +14,8 @@ import {
   KanbanSquare,
   CalendarClock,
   FolderArchive,
+  BarChart3,
+  Sparkles,
 } from "lucide-react";
 import { MembersTab } from "./members-tab";
 import { SettingsTab } from "./settings-tab";
@@ -21,6 +23,8 @@ import { PipelineTab } from "./pipeline-tab";
 import { ContactsTab } from "./contacts-tab";
 import { UpcomingTab } from "./upcoming-tab";
 import { DocumentsTab } from "./documents-tab";
+import { AnalyticsTab } from "./analytics-tab";
+import { AssistantTab } from "./assistant-tab";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 
 type Member = {
@@ -61,7 +65,7 @@ export function WorkspaceTabs({
   members: Member[];
   stats: Stats;
 }) {
-  const [tab, setTab] = useState<"overview" | "pipeline" | "contacts" | "upcoming" | "documents" | "members" | "settings">("overview");
+  const [tab, setTab] = useState<"overview" | "pipeline" | "contacts" | "upcoming" | "documents" | "analytics" | "assistant" | "members" | "settings">("overview");
   useKeyboardShortcuts();
 
   const tabs = [
@@ -70,6 +74,8 @@ export function WorkspaceTabs({
     { id: "contacts" as const, label: "Contacts", icon: Mail },
     { id: "upcoming" as const, label: "Upcoming", icon: CalendarClock },
     { id: "documents" as const, label: "Documents", icon: FolderArchive },
+    { id: "analytics" as const, label: "Analytics", icon: BarChart3 },
+    { id: "assistant" as const, label: "Assistant", icon: Sparkles },
     { id: "members" as const, label: "Members", icon: Users },
     { id: "settings" as const, label: "Settings", icon: Settings },
   ];
@@ -139,6 +145,14 @@ export function WorkspaceTabs({
 
         {tab === "documents" && (
           <DocumentsTab workspaceId={workspaceId} />
+        )}
+
+        {tab === "analytics" && (
+          <AnalyticsTab workspaceId={workspaceId} />
+        )}
+
+        {tab === "assistant" && (
+          <AssistantTab workspaceId={workspaceId} />
         )}
 
         {tab === "members" && (
