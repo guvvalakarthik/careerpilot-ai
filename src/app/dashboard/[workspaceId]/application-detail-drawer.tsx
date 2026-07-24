@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X, Building2, Star, Clock, MapPin, ExternalLink, Calendar, CheckCircle2, GitBranch, Sparkles, Zap, MessageSquare, Send, Plus, Trash2, Pencil, XCircle } from "lucide-react";
+import { X, Building2, Star, Clock, MapPin, ExternalLink, Calendar, CheckCircle2, GitBranch, Sparkles, Zap, MessageSquare, Send, Plus, Trash2, Pencil, XCircle, FileText, Link2, Unlink } from "lucide-react";
 import { api } from "@/trpc/react";
 
 const stageLabels: Record<string, string> = {
@@ -55,6 +55,8 @@ export function ApplicationDetailDrawer({
   const [taskTitle, setTaskTitle] = useState("");
   const [taskDesc, setTaskDesc] = useState("");
   const [taskDueAt, setTaskDueAt] = useState("");
+  const [showResumeLinker, setShowResumeLinker] = useState(false);
+  const [selectedResumeId, setSelectedResumeId] = useState("");
   const utils = api.useUtils();
 
   const { data: app, isLoading } = api.application.get.useQuery({
@@ -152,6 +154,24 @@ export function ApplicationDetailDrawer({
     onSuccess: () => {
       utils.application.get.invalidate({ workspaceId, applicationId });
       utils.task.list.invalidate({ workspaceId });
+    },
+  });
+
+  const { data: resumeVersions } = api.resume.list.useQuery({ workspaceId });
+
+  const linkResumeMutation = api.resume.linkToApplication.useMutation({
+    onSuccess: () => {
+      utils.application.get.invalidate({ workspaceId, applicationId });
+      utils.resume.list.invalidate({ workspaceId });
+      setShowResumeLinker(false);
+      setSelectedResumeId("");
+    },
+  });
+
+  const unlinkResumeMutation = api.resume.unlinkFromApplication.useMutation({
+    onSuccess: () => {
+      utils.application.get.invalidate({ workspaceId, applicationId });
+      utils.resume.list.invalidate({ workspaceId });
     },
   });
 
@@ -845,6 +865,82 @@ export function ApplicationDetailDrawer({
                       <p className="mt-1 text-xs text-slate-400">
                         {new Date(o.createdAt).toLocaleDateString()}
                       </p>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* Resume versions */}
+            <div className="mt-6">
+              <div className="flex items-center justify-between">
+                <h3 className="flex items-center gap-1.5 text-xs font-semibold text-slate-500">
+                  <FileText className="h-3.5 w-3.5" />
+                  Resume versions
+                </h3>
+                {!showResumeLinker && (
+                  <button
+                    onClick={() => setShowResumeLinker(true)}
+                    className="flex items-center gap-1 text-xs font-medium text-slate-600 transition hover:text-slate-900"
+                  >
+                    <Link2 className="h-3 w-3" />
+                    Link resume
+                  </button>
+                )}
+              </div>
+
+              {showResumeLinker && (
+                <div className="mt-2 rounded-lg border border-slate-200 p-3 space-y-2">
+                  <select
+                    value={selectedResumeId}
+                    onChange={(e) => setSelectedResumeId(e.target.value)}
+                    className="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
+                  >
+                    <option value="">Select a resume version...</option>
+                    {(resumeVersions ?? []).map((rv: { id: string; version: number; label: string | null; document: { fileName: string } }) => (
+                      <option key={rv.id} value={rv.id}>
+                        {rv.document.fileName} - v{rv.version}{rv.label ? ` (${rv.label})` : ""}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="flex justify-end gap-2">
+                    <button
+                      onClick={() => { setShowResumeLinker(false); setSelectedResumeId(""); }}
+                      className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs text-slate-600"
+                    >Cancel</button>
+                    <button
+                      onClick={() => {
+                        if (selectedResumeId) {
+                          linkResumeMutation.mutate({ workspaceId, resumeVersionId: selectedResumeId, applicationId });
+                        }
+                      }}
+                      disabled={linkResumeMutation.isPending || !selectedResumeId}
+                      className="rounded-lg bg-slate-900 px-2.5 py-1 text-xs font-medium text-white disabled:opacity-50"
+                    >
+                      {linkResumeMutation.isPending ? "Linking..." : "Link"}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className="mt-2 space-y-2">
+                {app.resumeLinks.length === 0 && !showResumeLinker ? (
+                  <p className="text-xs text-slate-400">No resume versions linked.</p>
+                ) : (
+                  app.resumeLinks.map((rv: { id: string; version: number; label: string | null; document: { fileName: string } }) => (
+                    <div key={rv.id} className="flex items-center gap-2 rounded-lg border border-slate-100 p-2 text-xs">
+                      <FileText className="h-3 w-3 text-slate-400" />
+                      <span className="font-medium text-slate-900">{rv.document.fileName}</span>
+                      <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-500">v{rv.version}</span>
+                      {rv.label && <span className="text-slate-400">{rv.label}</span>}
+                      <button
+                        onClick={() => unlinkResumeMutation.mutate({ workspaceId, resumeVersionId: rv.id, applicationId })}
+                        disabled={unlinkResumeMutation.isPending}
+                        className="ml-auto rounded p-1 text-slate-400 transition hover:bg-red-50 hover:text-red-500"
+                        title="Unlink resume"
+                      >
+                        <Unlink className="h-3 w-3" />
+                      </button>
                     </div>
                   ))
                 )}

@@ -8,6 +8,8 @@ import { aiRouter } from "@/server/api/routers/ai";
 import { contactRouter } from "@/server/api/routers/contact";
 import { interviewRouter } from "@/server/api/routers/interview";
 import { taskRouter } from "@/server/api/routers/task";
+import { documentRouter } from "@/server/api/routers/document";
+import { resumeRouter } from "@/server/api/routers/resume";
 
 export const appRouter = createTRPCRouter({
   workspace: workspaceRouter,
@@ -19,6 +21,8 @@ export const appRouter = createTRPCRouter({
   contact: contactRouter,
   interview: interviewRouter,
   task: taskRouter,
+  document: documentRouter,
+  resume: resumeRouter,
 });
 
 export type AppRouter = typeof appRouter;
