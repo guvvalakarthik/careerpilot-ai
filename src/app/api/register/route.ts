@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { db } from "@/server/db";
 import { recordAudit } from "@/server/api/audit";
+import { sendEmail, welcomeEmailHtml } from "@/server/email";
 
 const registerSchema = z.object({
   name: z.string().min(2).max(60),
@@ -47,6 +48,13 @@ export async function POST(req: Request) {
     entityType: "User",
     entityId: user.id,
   });
+
+  // Send welcome email (fire-and-forget — don't block registration)
+  sendEmail({
+    to: user.email,
+    subject: "Welcome to CareerPilot AI 🚀",
+    html: welcomeEmailHtml(user.name),
+  }).catch((err) => console.error("[email] Welcome email failed:", err));
 
   return NextResponse.json({ id: user.id }, { status: 201 });
 }
