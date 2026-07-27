@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Rocket, ArrowRight, Check, Briefcase, User } from "lucide-react";
+import { Rocket, ArrowRight, Check, Briefcase, User, X } from "lucide-react";
 import { api } from "@/trpc/react";
+import { SKILL_DOMAINS, DOMAIN_NAMES } from "@/lib/skill-domains";
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -12,6 +13,7 @@ export default function OnboardingPage() {
   const [headline, setHeadline] = useState("");
   const [skills, setSkills] = useState<string[]>([]);
   const [skillInput, setSkillInput] = useState("");
+  const [domain, setDomain] = useState("");
   const [yearsExp, setYearsExp] = useState("");
   const [error, setError] = useState<string | null>(null);
 
@@ -37,6 +39,18 @@ export default function OnboardingPage() {
       setSkills([...skills, trimmed]);
       setSkillInput("");
     }
+  }
+
+  function toggleSkill(skill: string) {
+    if (skills.includes(skill)) {
+      setSkills(skills.filter((s) => s !== skill));
+    } else {
+      setSkills([...skills, skill]);
+    }
+  }
+
+  function removeSkill(skill: string) {
+    setSkills(skills.filter((s) => s !== skill));
   }
 
   function handleWorkspace(e: React.FormEvent) {
@@ -154,11 +168,54 @@ export default function OnboardingPage() {
                   />
                 </div>
                 <div>
+                  <label className="block text-sm font-medium text-slate-700">Domain</label>
+                  <select
+                    value={domain}
+                    onChange={(e) => setDomain(e.target.value)}
+                    className="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm transition focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
+                  >
+                    <option value="">Select your domain...</option>
+                    {DOMAIN_NAMES.map((d) => (
+                      <option key={d} value={d}>
+                        {d}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-slate-700">Skills</label>
-                  <div className="mt-1.5 flex gap-2">
+                  {domain ? (
+                    <div className="mt-1.5 max-h-40 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 p-2.5">
+                      <div className="flex flex-wrap gap-1.5">
+                        {SKILL_DOMAINS[domain].map((skill) => {
+                          const selected = skills.includes(skill);
+                          return (
+                            <button
+                              key={skill}
+                              type="button"
+                              onClick={() => toggleSkill(skill)}
+                              className={`rounded-lg px-2.5 py-1 text-xs font-medium transition ${
+                                selected
+                                  ? "bg-slate-900 text-white"
+                                  : "bg-white text-slate-600 ring-1 ring-slate-200 hover:ring-slate-400"
+                              }`}
+                            >
+                              {selected ? "\u2713 " : "+ "}
+                              {skill}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="mt-1.5 rounded-lg border border-dashed border-slate-300 px-3.5 py-2.5 text-xs text-slate-400">
+                      Select a domain above to see suggested skills.
+                    </p>
+                  )}
+                  <div className="mt-2 flex gap-2">
                     <input
                       type="text"
-                      placeholder="Type a skill and press Enter"
+                      placeholder="Or type a custom skill and press Enter"
                       value={skillInput}
                       onChange={(e) => setSkillInput(e.target.value)}
                       onKeyDown={(e) => {
@@ -173,8 +230,18 @@ export default function OnboardingPage() {
                   {skills.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       {skills.map((s) => (
-                        <span key={s} className="rounded-lg bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
+                        <span
+                          key={s}
+                          className="flex items-center gap-1 rounded-lg bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700"
+                        >
                           {s}
+                          <button
+                            type="button"
+                            onClick={() => removeSkill(s)}
+                            className="text-slate-400 transition hover:text-slate-700"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
                         </span>
                       ))}
                     </div>

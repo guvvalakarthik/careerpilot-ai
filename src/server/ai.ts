@@ -28,7 +28,7 @@ export async function extractJobData(rawInput: string): Promise<ExtractedJobData
   if (!client) return null;
 
   const model = client.getGenerativeModel({
-    model: "gemini-2.5-flash",
+    model: "gemini-flash-latest",
     generationConfig: {
       responseMimeType: "application/json",
     },
@@ -120,7 +120,7 @@ export async function calculateFitScore(
 
   // Use AI for a more nuanced score if available
   const model = client.getGenerativeModel({
-    model: "gemini-2.5-flash",
+    model: "gemini-flash-latest",
     generationConfig: { responseMimeType: "application/json" },
   });
 
@@ -181,6 +181,7 @@ export interface ResumeJdMatchResult {
     resources: string[];
     priority: "high" | "medium" | "low";
   }[];
+  skillPaths: SkillPath[];
 }
 
 export async function resumeJdMatch(
@@ -191,7 +192,7 @@ export async function resumeJdMatch(
   if (!client) return null;
 
   const model = client.getGenerativeModel({
-    model: "gemini-2.5-flash",
+    model: "gemini-flash-latest",
     generationConfig: { responseMimeType: "application/json" },
   });
 
@@ -245,9 +246,68 @@ Guidelines:
       transferableSkills: Array.isArray(parsed.transferableSkills) ? parsed.transferableSkills : [],
       summary: parsed.summary ?? "",
       roadmap: Array.isArray(parsed.roadmap) ? parsed.roadmap : [],
+      skillPaths: [],
     };
   } catch (err) {
     console.error("Resume-JD match failed:", err);
+    return null;
+  }
+}
+
+export interface SkillPath {
+  fromSkill: string;
+  toSkill: string;
+  relationship: string;
+  reason: string;
+  estimatedTime: string;
+  strength: number;
+}
+
+export async function generateSkillPaths(
+  matchedSkills: string[],
+  missingSkills: string[],
+): Promise<SkillPath[] | null> {
+  const client = getClient();
+  if (!client) return null;
+
+  const model = client.getGenerativeModel({
+    model: "gemini-flash-latest",
+    generationConfig: { responseMimeType: "application/json" },
+  });
+
+  const prompt = `You are a technical career coach. Given a candidate's existing skills and skills they're missing for a job, identify transferable skill paths — ways their existing skills can help them learn missing skills faster.
+
+Candidate has: ${JSON.stringify(matchedSkills)}
+Candidate needs: ${JSON.stringify(missingSkills)}
+
+Return JSON array of skill paths:
+[
+  {
+    "fromSkill": string (a skill the candidate already has),
+    "toSkill": string (a missing skill they need to learn),
+    "relationship": "transferable" | "prerequisite" | "complementary",
+    "reason": string (why knowing fromSkill helps learn toSkill faster, 1 sentence),
+    "estimatedTime": string (e.g. "1-2 weeks" — time to bridge fromSkill to toSkill),
+    "strength": number (0.0-1.0, how strong the transfer is)
+  }
+]
+
+Rules:
+- Only include paths where there's a genuine knowledge transfer
+- Order by strength (highest first)
+- Max 8 paths
+- Be specific in reasons (e.g. "Both use component-based architecture with lifecycle methods")`;
+
+  try {
+    const result = await model.generateContent(prompt);
+    const text = result.response.text();
+    const parsed = JSON.parse(text) as SkillPath[];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (p) => p.fromSkill && p.toSkill && typeof p.strength === "number",
+    );
+  } catch (err) {
+    console.error("Skill path generation failed:", err);
     return null;
   }
 }
@@ -268,7 +328,7 @@ export async function assistantChat(
   const client = getClient();
   if (!client) return null;
 
-  const model = client.getGenerativeModel({ model: "gemini-1.5-flash" });
+  const model = client.getGenerativeModel({ model: "gemini-flash-latest" });
 
   const systemPrompt = `You are CareerPilot AI, a helpful career search assistant. You have access to the user's workspace data below. Use it to provide personalized, actionable advice.
 

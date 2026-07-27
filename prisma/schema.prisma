@@ -395,6 +395,24 @@ model ResumeVersion {
   @@unique([documentId, version])
 }
 
+// ---------- Skill relationships (lightweight knowledge graph) ----------
+
+model SkillRelationship {
+  id             String   @id @default(cuid())
+  skillA         String   // canonical lowercase skill name
+  skillB         String   // related skill name
+  relationship   String   // e.g. "transferable", "prerequisite", "complementary", "synonym"
+  strength       Float    @default(0.5) // 0.0 - 1.0
+  reason         String?  // e.g. "Both use component-based architecture"
+  estimatedTime  String?  // e.g. "1-2 weeks" to bridge skillA -> skillB
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([skillA, skillB, relationship])
+  @@index([skillA])
+  @@index([skillB])
+}
+
 // ---------- AI & observability ----------
 
 model AiRun {
