@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Zap,
   X,
@@ -15,6 +15,7 @@ import {
   TrendingUp,
   Loader2,
   AlertCircle,
+  FileCheck2,
 } from "lucide-react";
 import { api } from "@/trpc/react";
 import type { ResumeJdMatchResult } from "@/server/ai";
@@ -31,6 +32,9 @@ export function QuickCaptureModal({ workspaceId }: { workspaceId: string }) {
   const [matchResult, setMatchResult] = useState<ResumeJdMatchResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [jdFileName, setJdFileName] = useState<string | null>(null);
+  const [extractingJd, setExtractingJd] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const utils = api.useUtils();
 
   const { data: documents } = api.document.list.useQuery(
@@ -108,6 +112,42 @@ export function QuickCaptureModal({ workspaceId }: { workspaceId: string }) {
     setSelectedResumeId("");
     setJdText("");
     setError(null);
+  }
+
+  async function handleJdFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setExtractingJd(true);
+    setError(null);
+    setJdFileName(file.name);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("/api/extract-text", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to extract text");
+      }
+
+      const data = await res.json();
+      setRawText(data.text);
+      setMode("text");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to read file");
+      setJdFileName(null);
+    } finally {
+      setExtractingJd(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
   }
 
   return (
@@ -194,11 +234,43 @@ export function QuickCaptureModal({ workspaceId }: { workspaceId: string }) {
                     </div>
                   ) : (
                     <div>
-                      <label className="block text-sm font-medium text-slate-700">Job Description</label>
+                      <div className="flex items-center justify-between">
+                        <label className="block text-sm font-medium text-slate-700">Job Description</label>
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={extractingJd}
+                          className="flex items-center gap-1.5 text-xs font-medium text-indigo-600 transition hover:text-indigo-700 disabled:opacity-50"
+                        >
+                          {extractingJd ? (
+                            <>
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              Extracting...
+                            </>
+                          ) : jdFileName ? (
+                            <>
+                              <FileCheck2 className="h-3.5 w-3.5" />
+                              {jdFileName}
+                            </>
+                          ) : (
+                            <>
+                              <Upload className="h-3.5 w-3.5" />
+                              Upload PDF
+                            </>
+                          )}
+                        </button>
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept=".pdf,.txt,.doc,.docx"
+                          onChange={handleJdFileUpload}
+                          className="hidden"
+                        />
+                      </div>
                       <textarea
                         required
                         rows={5}
-                        placeholder="Paste the full job description here..."
+                        placeholder="Paste the full job description here, or upload a PDF..."
                         value={rawText}
                         onChange={(e) => setRawText(e.target.value)}
                         className="mt-1.5 w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm transition focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
