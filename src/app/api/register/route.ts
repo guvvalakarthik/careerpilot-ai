@@ -7,7 +7,13 @@ import { recordAudit } from "@/server/api/audit";
 const registerSchema = z.object({
   name: z.string().min(2).max(60),
   email: z.string().email(),
-  password: z.string().min(8).max(100),
+  password: z
+    .string()
+    .min(8, "Password must be at least 8 characters")
+    .max(100)
+    .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+    .regex(/\d/, "Password must contain at least one number")
+    .regex(/[!@#$%^&*(),.?":{}|<>]/, "Password must contain at least one special character"),
 });
 
 export async function POST(req: Request) {

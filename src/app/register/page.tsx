@@ -4,7 +4,7 @@ import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Rocket, ArrowRight, Check } from "lucide-react";
+import { Rocket, ArrowRight, Check, X } from "lucide-react";
 import { AuthSidePanel } from "@/components/auth-side-panel";
 
 export default function RegisterPage() {
@@ -15,13 +15,23 @@ export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  const passwordChecks = [
+    { label: "At least 8 characters", passed: password.length >= 8 },
+    { label: "One uppercase letter (A-Z)", passed: /[A-Z]/.test(password) },
+    { label: "One number (0-9)", passed: /\d/.test(password) },
+    { label: "One special character (!@#$...)", passed: /[!@#$%^&*(),.?":{}|<>]/.test(password) },
+  ];
+
+  const passedCount = passwordChecks.filter((c) => c.passed).length;
   const passwordStrength = (() => {
     if (password.length === 0) return { label: "", color: "", width: "0%" };
-    if (password.length < 8) return { label: "Too short", color: "bg-red-400", width: "25%" };
-    if (password.length < 12) return { label: "Fair", color: "bg-amber-400", width: "50%" };
-    if (password.length < 16) return { label: "Good", color: "bg-indigo-400", width: "75%" };
+    if (passedCount <= 1) return { label: "Weak", color: "bg-red-400", width: "25%" };
+    if (passedCount === 2) return { label: "Fair", color: "bg-amber-400", width: "50%" };
+    if (passedCount === 3) return { label: "Good", color: "bg-indigo-400", width: "75%" };
     return { label: "Strong", color: "bg-emerald-400", width: "100%" };
   })();
+
+  const isPasswordValid = passedCount === 4;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -126,16 +136,32 @@ export default function RegisterPage() {
                 className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm transition focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                 placeholder="At least 8 characters"
               />
-              {passwordStrength.label && (
-                <div className="mt-2 flex items-center gap-2">
-                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100">
-                    <div
-                      className={`h-full rounded-full transition-all ${passwordStrength.color}`}
-                      style={{ width: passwordStrength.width }}
-                    />
+              {password.length > 0 && (
+                <>
+                  <div className="mt-2 flex items-center gap-2">
+                    <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100">
+                      <div
+                        className={`h-full rounded-full transition-all ${passwordStrength.color}`}
+                        style={{ width: passwordStrength.width }}
+                      />
+                    </div>
+                    <span className="text-xs font-medium text-slate-500">{passwordStrength.label}</span>
                   </div>
-                  <span className="text-xs font-medium text-slate-500">{passwordStrength.label}</span>
-                </div>
+                  <div className="mt-3 space-y-1.5">
+                    {passwordChecks.map((check) => (
+                      <div key={check.label} className="flex items-center gap-2 text-xs">
+                        {check.passed ? (
+                          <Check className="h-3.5 w-3.5 text-emerald-500" />
+                        ) : (
+                          <X className="h-3.5 w-3.5 text-slate-300" />
+                        )}
+                        <span className={check.passed ? "text-slate-600" : "text-slate-400"}>
+                          {check.label}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </>
               )}
             </div>
 
@@ -147,10 +173,10 @@ export default function RegisterPage() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !isPasswordValid}
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:shadow-md hover:from-indigo-700 hover:to-indigo-600 disabled:opacity-50"
             >
-              {loading ? "Creating account..." : "Create account"}
+              {loading ? "Creating account..." : isPasswordValid ? "Create account" : "Meet password requirements"}
               {!loading && <ArrowRight className="h-4 w-4" />}
             </button>
           </form>
