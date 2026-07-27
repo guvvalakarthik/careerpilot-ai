@@ -16,6 +16,7 @@ import {
   Loader2,
   AlertCircle,
   FileCheck2,
+  ArrowRight,
 } from "lucide-react";
 import { api } from "@/trpc/react";
 import type { ResumeJdMatchResult } from "@/server/ai";
@@ -575,6 +576,47 @@ function MatchResults({
               <span key={skill} className="rounded-lg bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700">
                 {skill}
               </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Skill paths — transferable knowledge graph */}
+      {result.skillPaths.length > 0 && (
+        <div>
+          <p className="flex items-center gap-1.5 text-sm font-semibold text-violet-700">
+            <ArrowRight className="h-4 w-4" />
+            Skill transfer paths
+          </p>
+          <p className="mt-1 text-xs text-slate-500">
+            Your existing skills can help you learn missing ones faster.
+          </p>
+          <div className="mt-2 space-y-2">
+            {result.skillPaths.map((path, i) => (
+              <div key={i} className="rounded-lg border border-violet-100 bg-violet-50/50 p-3">
+                <div className="flex items-center gap-2">
+                  <span className="rounded-lg bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
+                    {path.fromSkill}
+                  </span>
+                  <ArrowRight className="h-3.5 w-3.5 text-slate-400" />
+                  <span className="rounded-lg bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">
+                    {path.toSkill}
+                  </span>
+                  <span className="ml-auto text-xs text-slate-500">{path.estimatedTime}</span>
+                </div>
+                <p className="mt-1.5 text-xs text-slate-600">{path.reason}</p>
+                <div className="mt-1.5 flex items-center gap-2">
+                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-200">
+                    <div
+                      className="h-full rounded-full bg-violet-500"
+                      style={{ width: `${Math.round(path.strength * 100)}%` }}
+                    />
+                  </div>
+                  <span className="text-xs font-medium text-violet-600">
+                    {Math.round(path.strength * 100)}%
+                  </span>
+                </div>
+              </div>
             ))}
           </div>
         </div>

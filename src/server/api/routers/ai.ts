@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, workspaceProcedure, requireRole } from "@/server/api/trpc";
-import { extractJobData, calculateFitScore, isAIConfigured, assistantChat, resumeJdMatch, type ChatMessage } from "@/server/ai";
+import { extractJobData, calculateFitScore, isAIConfigured, assistantChat, resumeJdMatch, generateSkillPaths, type ChatMessage } from "@/server/ai";
 import { fetchFileTextFromR2, isR2Configured } from "@/server/r2";
 import { recordAudit } from "@/server/api/audit";
 
@@ -365,6 +365,42 @@ export const aiRouter = createTRPCRouter({
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Resume match analysis failed" });
       }
 
+      // Generate transferable skill paths and cache them
+      if (result.matchedSkills.length > 0 && result.missingSkills.length > 0) {
+        const paths = await generateSkillPaths(result.matchedSkills, result.missingSkills);
+        if (paths && paths.length > 0) {
+          result.skillPaths = paths;
+
+          // Cache skill relationships in DB (upsert, ignore failures)
+          for (const p of paths) {
+            const skillA = p.fromSkill.toLowerCase();
+            const skillB = p.toSkill.toLowerCase();
+            try {
+              await ctx.db.skillRelationship.upsert({
+                where: {
+                  skillA_skillB_relationship: { skillA, skillB, relationship: p.relationship },
+                },
+                create: {
+                  skillA,
+                  skillB,
+                  relationship: p.relationship,
+                  strength: p.strength,
+                  reason: p.reason,
+                  estimatedTime: p.estimatedTime,
+                },
+                update: {
+                  strength: p.strength,
+                  reason: p.reason,
+                  estimatedTime: p.estimatedTime,
+                },
+              });
+            } catch {
+              // Non-critical — continue
+            }
+          }
+        }
+      }
+
       await ctx.db.aiRun.update({
         where: { id: aiRun.id },
         data: {
@@ -385,5 +421,26 @@ export const aiRouter = createTRPCRouter({
       });
 
       return result;
+    }),
+
+  skillPaths: requireRole(["OWNER", "COACH", "SEEKER"])
+    .input(
+      z.object({
+        workspaceId: z.string(),
+        skills: z.array(z.string()).min(1).max(50),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const lowerSkills = input.skills.map((s) => s.toLowerCase());
+
+      // Check DB cache for known relationships
+      const cached = await ctx.db.skillRelationship.findMany({
+        where: {
+          skillA: { in: lowerSkills },
+        },
+        orderBy: { strength: "desc" },
+      });
+
+      return { paths: cached };
     }),
 });
