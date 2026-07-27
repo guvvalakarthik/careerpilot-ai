@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, workspaceProcedure, requireRole } from "@/server/api/trpc";
-import { extractJobData, calculateFitScore, isAIConfigured, assistantChat, type ChatMessage } from "@/server/ai";
+import { extractJobData, calculateFitScore, isAIConfigured, assistantChat, resumeJdMatch, type ChatMessage } from "@/server/ai";
+import { fetchFileTextFromR2, isR2Configured } from "@/server/r2";
 import { recordAudit } from "@/server/api/audit";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -292,5 +293,97 @@ export const aiRouter = createTRPCRouter({
       });
 
       return { response };
+    }),
+
+  resumeMatch: requireRole(["OWNER", "COACH", "SEEKER"])
+    .input(
+      z.object({
+        workspaceId: z.string(),
+        documentId: z.string(),
+        jdText: z.string().min(50).max(20000),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      if (!isAIConfigured()) {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "AI is not configured. Set GOOGLE_GENERATIVE_AI_API_KEY." });
+      }
+
+      if (!isR2Configured()) {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "R2 storage is not configured." });
+      }
+
+      // Fetch the resume document from DB
+      const doc = await ctx.db.document.findFirst({
+        where: {
+          id: input.documentId,
+          workspaceId: ctx.workspaceId,
+        },
+      });
+      if (!doc) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Resume document not found" });
+      }
+
+      const aiRun = await ctx.db.aiRun.create({
+        data: {
+          workspaceId: ctx.workspaceId,
+          userId: ctx.userId,
+          type: "FIT_SCORING",
+          status: "RUNNING",
+          inputSummary: `Resume match: ${doc.fileName}`,
+        },
+      });
+
+      const startTime = Date.now();
+
+      // Extract text from the resume file in R2
+      let resumeText: string;
+      try {
+        resumeText = await fetchFileTextFromR2(doc.storageKey, doc.mimeType);
+      } catch {
+        await ctx.db.aiRun.update({
+          where: { id: aiRun.id },
+          data: { status: "FAILED", errorMessage: "Failed to extract resume text", latencyMs: Date.now() - startTime },
+        });
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to read resume file" });
+      }
+
+      if (resumeText.trim().length < 50) {
+        await ctx.db.aiRun.update({
+          where: { id: aiRun.id },
+          data: { status: "FAILED", errorMessage: "Resume text too short", latencyMs: Date.now() - startTime },
+        });
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Could not extract enough text from the resume. If it's a scanned PDF, try uploading a text-based version." });
+      }
+
+      const result = await resumeJdMatch(resumeText, input.jdText);
+
+      if (!result) {
+        await ctx.db.aiRun.update({
+          where: { id: aiRun.id },
+          data: { status: "FAILED", errorMessage: "Resume match returned null", latencyMs: Date.now() - startTime },
+        });
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Resume match analysis failed" });
+      }
+
+      await ctx.db.aiRun.update({
+        where: { id: aiRun.id },
+        data: {
+          status: "SUCCEEDED",
+          output: result as PrismaJson,
+          latencyMs: Date.now() - startTime,
+        },
+      });
+
+      await recordAudit({
+        db: ctx.db,
+        workspaceId: ctx.workspaceId,
+        userId: ctx.userId,
+        action: "ai.resume_match",
+        entityType: "AiRun",
+        entityId: aiRun.id,
+        metadata: { matchScore: result.matchScore, verdict: result.matchVerdict, documentId: doc.id },
+      });
+
+      return result;
     }),
 });
