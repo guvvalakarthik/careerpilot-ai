@@ -28,7 +28,7 @@ export async function extractJobData(rawInput: string): Promise<ExtractedJobData
   if (!client) return null;
 
   const model = client.getGenerativeModel({
-    model: "gemini-1.5-flash",
+    model: "gemini-2.5-flash",
     generationConfig: {
       responseMimeType: "application/json",
     },
@@ -120,7 +120,7 @@ export async function calculateFitScore(
 
   // Use AI for a more nuanced score if available
   const model = client.getGenerativeModel({
-    model: "gemini-1.5-flash",
+    model: "gemini-2.5-flash",
     generationConfig: { responseMimeType: "application/json" },
   });
 
