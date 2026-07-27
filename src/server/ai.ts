@@ -167,6 +167,91 @@ export function isAIConfigured() {
   return !!apiKey;
 }
 
+export interface ResumeJdMatchResult {
+  matchVerdict: "strong" | "moderate" | "weak";
+  matchScore: number;
+  matchedSkills: string[];
+  missingSkills: string[];
+  transferableSkills: string[];
+  summary: string;
+  roadmap: {
+    skill: string;
+    level: string;
+    estimatedTime: string;
+    resources: string[];
+    priority: "high" | "medium" | "low";
+  }[];
+}
+
+export async function resumeJdMatch(
+  resumeText: string,
+  jdText: string,
+): Promise<ResumeJdMatchResult | null> {
+  const client = getClient();
+  if (!client) return null;
+
+  const model = client.getGenerativeModel({
+    model: "gemini-2.5-flash",
+    generationConfig: { responseMimeType: "application/json" },
+  });
+
+  const prompt = `You are an expert technical recruiter and career coach. Compare the candidate's resume against the job description and provide a detailed match analysis.
+
+Resume:
+"""
+${resumeText.slice(0, 8000)}
+"""
+
+Job Description:
+"""
+${jdText.slice(0, 8000)}
+"""
+
+Return JSON with these exact fields:
+{
+  "matchVerdict": "strong" | "moderate" | "weak",
+  "matchScore": number (0-100),
+  "matchedSkills": string[] (skills the candidate has that the JD requires),
+  "missingSkills": string[] (skills the JD requires that the candidate lacks),
+  "transferableSkills": string[] (candidate skills that could transfer to required skills),
+  "summary": string (2-3 sentence overall assessment),
+  "roadmap": [
+    {
+      "skill": string (the missing skill to learn),
+      "level": string (e.g. "Beginner", "Intermediate"),
+      "estimatedTime": string (e.g. "2-3 weeks", "1 month"),
+      "resources": string[] (2-3 specific resources: courses, docs, projects),
+      "priority": "high" | "medium" | "low"
+    }
+  ]
+}
+
+Guidelines:
+- matchScore should reflect real employability, not just keyword overlap
+- Consider experience level, project complexity, and domain knowledge
+- Roadmap should only include missingSkills, ordered by priority (high first)
+- Resources should be specific and actionable (e.g. "Official React docs: react.dev/learn", "Build a CRUD app with Express + PostgreSQL")
+- Keep summary concise and honest`;
+
+  try {
+    const result = await model.generateContent(prompt);
+    const text = result.response.text();
+    const parsed = JSON.parse(text) as ResumeJdMatchResult;
+    return {
+      matchVerdict: parsed.matchVerdict ?? "moderate",
+      matchScore: Math.max(0, Math.min(100, Math.round(parsed.matchScore ?? 50))),
+      matchedSkills: Array.isArray(parsed.matchedSkills) ? parsed.matchedSkills : [],
+      missingSkills: Array.isArray(parsed.missingSkills) ? parsed.missingSkills : [],
+      transferableSkills: Array.isArray(parsed.transferableSkills) ? parsed.transferableSkills : [],
+      summary: parsed.summary ?? "",
+      roadmap: Array.isArray(parsed.roadmap) ? parsed.roadmap : [],
+    };
+  } catch (err) {
+    console.error("Resume-JD match failed:", err);
+    return null;
+  }
+}
+
 export interface ChatMessage {
   role: "user" | "model";
   content: string;

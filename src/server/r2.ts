@@ -76,6 +76,37 @@ export async function deleteFromR2(storageKey: string): Promise<void> {
   );
 }
 
+export async function fetchFileBufferFromR2(storageKey: string): Promise<Buffer> {
+  const { bucketName } = getR2Config();
+  const client = getR2Client();
+
+  const response = await client.send(
+    new GetObjectCommand({ Bucket: bucketName, Key: storageKey }),
+  );
+
+  const bytes = await response.Body!.transformToByteArray();
+  return Buffer.from(bytes);
+}
+
+export async function fetchFileTextFromR2(
+  storageKey: string,
+  mimeType: string,
+): Promise<string> {
+  const buffer = await fetchFileBufferFromR2(storageKey);
+
+  if (mimeType === "application/pdf" || storageKey.endsWith(".pdf")) {
+    const { PDFParse } = await import("pdf-parse");
+    const parser = new PDFParse({ data: new Uint8Array(buffer), verbosity: 0 });
+    const result = await parser.getText();
+    const text = result.pages.map((p: { text: string }) => p.text).join("\n");
+    await parser.destroy();
+    return text;
+  }
+
+  // For text-based files, read as UTF-8
+  return buffer.toString("utf-8");
+}
+
 export function isR2Configured(): boolean {
   return !!(
     process.env.R2_ACCOUNT_ID &&
