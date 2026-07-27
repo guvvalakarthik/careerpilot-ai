@@ -28,7 +28,7 @@ export async function extractJobData(rawInput: string): Promise<ExtractedJobData
   if (!client) return null;
 
   const model = client.getGenerativeModel({
-    model: "gemini-2.5-flash",
+    model: "gemini-flash-latest",
     generationConfig: {
       responseMimeType: "application/json",
     },
@@ -120,7 +120,7 @@ export async function calculateFitScore(
 
   // Use AI for a more nuanced score if available
   const model = client.getGenerativeModel({
-    model: "gemini-2.5-flash",
+    model: "gemini-flash-latest",
     generationConfig: { responseMimeType: "application/json" },
   });
 
@@ -192,7 +192,7 @@ export async function resumeJdMatch(
   if (!client) return null;
 
   const model = client.getGenerativeModel({
-    model: "gemini-2.5-flash",
+    model: "gemini-flash-latest",
     generationConfig: { responseMimeType: "application/json" },
   });
 
@@ -271,7 +271,7 @@ export async function generateSkillPaths(
   if (!client) return null;
 
   const model = client.getGenerativeModel({
-    model: "gemini-2.5-flash",
+    model: "gemini-flash-latest",
     generationConfig: { responseMimeType: "application/json" },
   });
 
@@ -328,7 +328,7 @@ export async function assistantChat(
   const client = getClient();
   if (!client) return null;
 
-  const model = client.getGenerativeModel({ model: "gemini-1.5-flash" });
+  const model = client.getGenerativeModel({ model: "gemini-flash-latest" });
 
   const systemPrompt = `You are CareerPilot AI, a helpful career search assistant. You have access to the user's workspace data below. Use it to provide personalized, actionable advice.
 
