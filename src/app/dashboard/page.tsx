@@ -3,7 +3,7 @@ import { auth } from "@/server/auth";
 import { db } from "@/server/db";
 import Link from "next/link";
 import { Building2, Briefcase, ArrowRight, Crown, Shield, GraduationCap } from "lucide-react";
-import { AppNavbar } from "@/components/app-navbar";
+import { AppSidebar } from "@/components/app-sidebar";
 import { CreateWorkspaceModal } from "./create-workspace-modal";
 
 const roleBadge: Record<string, { icon: typeof Crown; className: string; label: string }> = {
@@ -24,10 +24,11 @@ export default async function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <AppNavbar />
+      <AppSidebar />
 
-      <main className="mx-auto w-full max-w-5xl px-4 py-10">
-        <div className="flex items-center justify-between">
+      <main className="ml-60 w-[calc(100%-15rem)] px-8 py-10">
+        <div className="mx-auto max-w-5xl">
+          <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-slate-900">
               Workspaces
@@ -104,6 +105,7 @@ export default async function DashboardPage() {
             </div>
           )}
         </section>
+        </div>
       </main>
     </div>
   );

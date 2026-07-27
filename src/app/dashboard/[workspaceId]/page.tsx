@@ -3,7 +3,7 @@ import { auth } from "@/server/auth";
 import { db } from "@/server/db";
 import Link from "next/link";
 import { ArrowLeft, Briefcase } from "lucide-react";
-import { AppNavbar } from "@/components/app-navbar";
+import { AppSidebar } from "@/components/app-sidebar";
 import { WorkspaceTabs } from "./workspace-tabs";
 
 export default async function WorkspaceDetailPage({
@@ -44,9 +44,9 @@ export default async function WorkspaceDetailPage({
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <AppNavbar />
+      <AppSidebar />
 
-      <main className="mx-auto w-full max-w-6xl px-4 py-8">
+      <main className="ml-60 w-[calc(100%-15rem)] px-8 py-8">
         <Link
           href="/dashboard"
           className="mb-4 inline-flex items-center gap-1.5 text-sm text-slate-500 transition hover:text-slate-700"

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { User, Plus, X, Save, Briefcase, MapPin, DollarSign, Clock } from "lucide-react";
 import { api } from "@/trpc/react";
-import { AppNavbar } from "@/components/app-navbar";
+import { AppSidebar } from "@/components/app-sidebar";
 
 export default function ProfilePage() {
   const { data: profile, isLoading } = api.candidate.get.useQuery();
@@ -11,8 +11,8 @@ export default function ProfilePage() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-slate-50">
-        <AppNavbar />
-        <div className="mx-auto max-w-3xl px-4 py-10">
+        <AppSidebar />
+        <div className="ml-60 w-[calc(100%-15rem)] px-8 py-10">
           <p className="text-sm text-slate-400">Loading profile...</p>
         </div>
       </div>
@@ -102,9 +102,10 @@ function ProfileForm({
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <AppNavbar />
+      <AppSidebar />
 
-      <main className="mx-auto w-full max-w-3xl px-4 py-10">
+      <main className="ml-60 w-[calc(100%-15rem)] px-8 py-10">
+        <div className="mx-auto max-w-3xl">
         <div className="flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-slate-900">
             <User className="h-6 w-6 text-white" />
@@ -348,6 +349,7 @@ function ProfileForm({
             </button>
           </div>
         </form>
+        </div>
       </main>
     </div>
   );
