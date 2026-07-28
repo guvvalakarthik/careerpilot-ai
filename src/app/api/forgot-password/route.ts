@@ -3,12 +3,15 @@ import { z } from "zod";
 import crypto from "crypto";
 import { db } from "@/server/db";
 import { sendEmail, passwordResetEmailHtml } from "@/server/email";
+import { limitHttpRequest } from "@/server/rate-limit";
 
 const forgotSchema = z.object({
   email: z.string().email(),
 });
 
 export async function POST(req: Request) {
+  const limited = await limitHttpRequest(req, "passwordReset");
+  if (limited) return limited;
   const body = await req.json().catch(() => null);
   const parsed = forgotSchema.safeParse(body);
   if (!parsed.success) {

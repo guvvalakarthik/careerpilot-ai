@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { createTRPCRouter, workspaceProcedure, requireRole } from "@/server/api/trpc";
+import { createTRPCRouter, workspaceProcedure, requireRateLimitedRole } from "@/server/api/trpc";
 import { extractJobData, calculateFitScore, isAIConfigured, assistantChat, resumeJdMatch, generateSkillPaths, type ChatMessage } from "@/server/ai";
 import { fetchFileTextFromR2, isR2Configured } from "@/server/r2";
 import { recordAudit } from "@/server/api/audit";
@@ -16,7 +16,7 @@ export const aiRouter = createTRPCRouter({
       return { configured: isAIConfigured() };
     }),
 
-  extractJob: requireRole(["OWNER", "COACH", "SEEKER"])
+  extractJob: requireRateLimitedRole(["OWNER", "COACH", "SEEKER"], "ai")
     .input(
       z.object({
         workspaceId: z.string(),
@@ -107,7 +107,7 @@ export const aiRouter = createTRPCRouter({
       return { opportunity: updated, extracted };
     }),
 
-  fitScore: requireRole(["OWNER", "COACH", "SEEKER"])
+  fitScore: requireRateLimitedRole(["OWNER", "COACH", "SEEKER"], "ai")
     .input(
       z.object({
         workspaceId: z.string(),
@@ -190,7 +190,7 @@ export const aiRouter = createTRPCRouter({
       return { application: updated, result };
     }),
 
-  assistantChat: requireRole(["OWNER", "COACH", "SEEKER"])
+  assistantChat: requireRateLimitedRole(["OWNER", "COACH", "SEEKER"], "ai")
     .input(
       z.object({
         workspaceId: z.string(),
@@ -296,7 +296,7 @@ export const aiRouter = createTRPCRouter({
       return { response };
     }),
 
-  resumeMatch: requireRole(["OWNER", "COACH", "SEEKER"])
+  resumeMatch: requireRateLimitedRole(["OWNER", "COACH", "SEEKER"], "ai")
     .input(
       z.object({
         workspaceId: z.string(),
@@ -425,7 +425,7 @@ export const aiRouter = createTRPCRouter({
       return result;
     }),
 
-  skillPaths: requireRole(["OWNER", "COACH", "SEEKER"])
+  skillPaths: requireRateLimitedRole(["OWNER", "COACH", "SEEKER"], "ai")
     .input(
       z.object({
         workspaceId: z.string(),
