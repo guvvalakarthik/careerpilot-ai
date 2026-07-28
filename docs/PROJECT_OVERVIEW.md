@@ -277,8 +277,8 @@ The browser suite covers:
 
 The CI workflow runs on pushes and pull requests targeting `main`:
 
-- `quality`: `npm ci`, Prisma generation, lint, typecheck, unit tests, production build.
-- `integration-e2e`: PostgreSQL 16, migrations, integration tests, Chromium, seed, Playwright.
+- `quality`: `npm ci`, Prisma generation and schema validation, lint, typecheck, unit tests, production build.
+- `integration-e2e`: PostgreSQL 16, guarded migration deploy, migration history and schema-drift checks, integration tests, Chromium, guarded seed, Playwright.
 
 The workflow uses read-only repository permissions, cancels superseded runs for the same ref, and uploads Playwright diagnostics.
 
@@ -290,6 +290,7 @@ Repository-provided deployment pieces:
 - `vercel.json` daily cron configuration.
 - Sentry wrappers and instrumentation.
 - Environment templates for Neon/PostgreSQL, Auth.js, Gemini, Resend, R2, Sentry, cron, and Upstash.
+- Loopback-only local Prisma commands and a production migration approval runbook.
 
 Not guaranteed by repository code:
 
@@ -307,5 +308,5 @@ Not guaranteed by repository code:
 5. Add pgvector embeddings, owner-scoped retrieval, and validated citations to Assistant Chat.
 6. Add durable Inngest indexing with retries, idempotency, deletion handling, and workspace backfill.
 7. Add PostgreSQL RLS only as defense in depth after defining/test-driving policies; do not treat it as a replacement for application scopes.
-8. Add production deployment runbooks, backup/restore verification, health checks, and alert ownership.
+8. Add backup/restore verification, health checks, and alert ownership to the production migration runbook.
 9. Expand router tests beyond the currently covered tenant/RBAC and core application/workspace/interview/task behavior.

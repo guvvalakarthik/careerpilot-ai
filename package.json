@@ -12,11 +12,15 @@
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "test:e2e:ci": "prisma db seed && playwright test",
+    "test:e2e:ci": "npm run db:seed && playwright test",
     "db:up": "docker compose up -d",
-    "db:migrate": "prisma migrate dev",
-    "db:seed": "prisma db seed",
-    "db:studio": "prisma studio"
+    "db:validate": "prisma validate",
+    "db:migrate": "tsx scripts/run-local-prisma.ts migrate dev",
+    "db:deploy:local": "tsx scripts/run-local-prisma.ts migrate deploy",
+    "db:status:local": "tsx scripts/run-local-prisma.ts migrate status",
+    "db:drift:local": "tsx scripts/run-local-prisma.ts migrate diff --exit-code --from-schema-datasource prisma/schema.prisma --to-schema-datamodel prisma/schema.prisma",
+    "db:seed": "tsx scripts/run-local-prisma.ts db seed",
+    "db:studio": "tsx scripts/run-local-prisma.ts studio"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.3",

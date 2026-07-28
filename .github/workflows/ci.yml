@@ -34,6 +34,9 @@ jobs:
       - name: Generate Prisma client
         run: npx prisma generate
 
+      - name: Validate Prisma schema
+        run: npm run db:validate
+
       - name: Lint
         run: npm run lint
 
@@ -82,8 +85,14 @@ jobs:
       - name: Generate Prisma client
         run: npx prisma generate
 
-      - name: Apply database migrations
-        run: npx prisma migrate deploy
+      - name: Apply database migrations to local CI PostgreSQL
+        run: npm run db:deploy:local
+
+      - name: Verify migration history
+        run: npm run db:status:local
+
+      - name: Detect schema drift
+        run: npm run db:drift:local
 
       - name: Database integration tests
         run: npm run test:integration
