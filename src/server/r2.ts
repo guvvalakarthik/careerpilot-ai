@@ -28,21 +28,13 @@ function getR2Client(): S3Client {
   });
 }
 
-function buildStorageKey(workspaceId: string, fileName: string): string {
-  const timestamp = Date.now();
-  const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
-  return `${workspaceId}/${timestamp}-${safeName}`;
-}
-
 export async function uploadToR2(
-  workspaceId: string,
+  storageKey: string,
   file: Buffer,
-  fileName: string,
   mimeType: string,
 ): Promise<{ storageKey: string; sizeBytes: number }> {
   const { bucketName } = getR2Config();
   const client = getR2Client();
-  const storageKey = buildStorageKey(workspaceId, fileName);
 
   await client.send(
     new PutObjectCommand({

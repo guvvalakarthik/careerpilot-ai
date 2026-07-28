@@ -23,72 +23,64 @@ export const resumeRouter = createTRPCRouter({
     }),
 
   linkToApplication: requireRole(["OWNER", "COACH", "SEEKER"])
-    .input(
-      z.object({
-        workspaceId: z.string(),
-        resumeVersionId: z.string(),
-        applicationId: z.string(),
-      }),
-    )
+    .input(z.object({ workspaceId: z.string(), resumeVersionId: z.string(), applicationId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const resume = await ctx.db.resumeVersion.findFirst({
         where: {
           id: input.resumeVersionId,
           document: { workspaceId: ctx.workspaceId, ...ownerScope(ctx.membership.role, ctx.userId) },
         },
+        include: { document: true },
       });
       if (!resume) throw new TRPCError({ code: "NOT_FOUND", message: "Resume version not found" });
 
       const app = await ctx.db.application.findFirst({
-        where: { id: input.applicationId, workspaceId: ctx.workspaceId, ...ownerScope(ctx.membership.role, ctx.userId) },
-      });
-      if (!app) throw new TRPCError({ code: "NOT_FOUND", message: "Application not found" });
-      const ownedResume = await ctx.db.resumeVersion.findUnique({ where: { id: input.resumeVersionId }, include: { document: true } });
-      if (!ownedResume || ownedResume.document.ownerId !== app.ownerId) throw new TRPCError({ code: "BAD_REQUEST", message: "Resume and application must have the same owner" });
-
-      await ctx.db.application.update({
-        where: { id: input.applicationId },
-        data: {
-          resumeLinks: {
-            connect: { id: input.resumeVersionId },
-          },
+        where: {
+          id: input.applicationId,
+          workspaceId: ctx.workspaceId,
+          ...ownerScope(ctx.membership.role, ctx.userId),
         },
       });
+      if (!app) throw new TRPCError({ code: "NOT_FOUND", message: "Application not found" });
+      if (resume.document.ownerId !== app.ownerId) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Resume and application must have the same owner" });
+      }
 
+      await ctx.db.application.update({
+        where: { id: app.id },
+        data: { resumeLinks: { connect: { id: resume.id } } },
+      });
       return { ok: true };
     }),
 
   unlinkFromApplication: requireRole(["OWNER", "COACH", "SEEKER"])
-    .input(
-      z.object({
-        workspaceId: z.string(),
-        resumeVersionId: z.string(),
-        applicationId: z.string(),
-      }),
-    )
+    .input(z.object({ workspaceId: z.string(), resumeVersionId: z.string(), applicationId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      const app = await ctx.db.application.findFirst({ where: { id: input.applicationId, workspaceId: ctx.workspaceId, ...ownerScope(ctx.membership.role, ctx.userId), resumeLinks: { some: { id: input.resumeVersionId, document: { workspaceId: ctx.workspaceId } } } } });
-      if (!app) throw new TRPCError({ code: "NOT_FOUND", message: "Resume link not found" });
-      await ctx.db.application.update({
-        where: { id: input.applicationId },
-        data: {
+      const app = await ctx.db.application.findFirst({
+        where: {
+          id: input.applicationId,
+          workspaceId: ctx.workspaceId,
+          ...ownerScope(ctx.membership.role, ctx.userId),
           resumeLinks: {
-            disconnect: { id: input.resumeVersionId },
+            some: { id: input.resumeVersionId, document: { workspaceId: ctx.workspaceId } },
           },
         },
       });
+      if (!app) throw new TRPCError({ code: "NOT_FOUND", message: "Resume link not found" });
 
+      await ctx.db.application.update({
+        where: { id: app.id },
+        data: { resumeLinks: { disconnect: { id: input.resumeVersionId } } },
+      });
       return { ok: true };
     }),
 
   updateLabel: requireRole(["OWNER", "COACH", "SEEKER"])
-    .input(
-      z.object({
-        workspaceId: z.string(),
-        resumeVersionId: z.string(),
-        label: z.string().max(100).optional().nullable(),
-      }),
-    )
+    .input(z.object({
+      workspaceId: z.string(),
+      resumeVersionId: z.string(),
+      label: z.string().max(100).optional().nullable(),
+    }))
     .mutation(async ({ ctx, input }) => {
       const resume = await ctx.db.resumeVersion.findFirst({
         where: {
@@ -97,9 +89,8 @@ export const resumeRouter = createTRPCRouter({
         },
       });
       if (!resume) throw new TRPCError({ code: "NOT_FOUND", message: "Resume version not found" });
-
       return ctx.db.resumeVersion.update({
-        where: { id: input.resumeVersionId },
+        where: { id: resume.id },
         data: { label: input.label ?? null },
       });
     }),
