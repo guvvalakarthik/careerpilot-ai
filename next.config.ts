@@ -8,10 +8,24 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: ["127.0.0.1", "localhost"],
 };
 
+const canUploadSentrySourceMaps = Boolean(
+  process.env.SENTRY_AUTH_TOKEN &&
+    process.env.SENTRY_ORG &&
+    process.env.SENTRY_PROJECT,
+);
+
 export default withSentryConfig(nextConfig, {
   org: process.env.SENTRY_ORG,
   project: process.env.SENTRY_PROJECT,
-  silent: !process.env.SENTRY_DSN,
-  widenClientFileUpload: true,
-  disableLogger: true,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  silent: !canUploadSentrySourceMaps,
+  sourcemaps: {
+    disable: !canUploadSentrySourceMaps,
+  },
+  widenClientFileUpload: canUploadSentrySourceMaps,
+  webpack: {
+    treeshake: {
+      removeDebugLogging: true,
+    },
+  },
 });

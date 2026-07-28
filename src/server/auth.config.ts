@@ -1,7 +1,7 @@
 import type { NextAuthConfig } from "next-auth";
 
 /**
- * Edge-safe auth config (no Prisma, no bcrypt) shared with middleware.
+ * Runtime-safe auth config (no Prisma, no bcrypt) shared with Proxy.
  * Providers that need the database are added in auth.ts (server-only).
  */
 export const authConfig = {
