@@ -194,14 +194,16 @@ The assistant is context-aware, not retrieval-augmented. It loads bounded applic
 
 R2 helpers support:
 
-- Object upload with a workspace-prefixed generated key.
+- Server-generated UUID object keys below `workspaces/{workspaceId}/documents/`.
 - Time-limited signed downloads.
 - Object deletion.
 - PDF/text extraction for resume analysis.
 
 Document metadata and resume versions are stored in PostgreSQL. Access to list, download, delete, and resume links is owner-scoped for seekers.
 
-Current merged limitation: object upload and document metadata creation are separate requests. The merged route checks authentication, workspace membership, size, R2 configuration, and a user/workspace rate limit, but it does not yet provide a single atomic upload-plus-metadata transaction, file-signature validation, or guaranteed orphan cleanup.
+The authenticated `/api/upload` route accepts the file, workspace, document type, and optional resume metadata as one request. It enforces a 10 MB limit; detects PDF, DOCX, UTF-8 TXT, PNG, and JPEG content from the real bytes; rejects extension/content mismatches; and derives storage metadata on the server.
+
+The route uploads the validated object to R2, creates the `Document` and optional `ResumeVersion` in one database transaction, and deletes the object if database creation fails. Deletion removes database access first and then performs best-effort R2 cleanup, so a storage failure cannot leave an accessible metadata record.
 
 ## Notifications and scheduled work
 
@@ -298,13 +300,12 @@ Not guaranteed by repository code:
 
 ## Known gaps and next engineering work
 
-1. Merge a single-step, content-validated document upload lifecycle with orphan cleanup.
-2. Mount and tenant-harden the notification UI; deliver record reminders to the related owner and exclude archived applications from stale alerts.
-3. Mount the theme toggle and finish dark-mode coverage across the dashboard.
-4. Correct or rename analytics `responseRate`, which currently duplicates `interviewRate`.
-5. Add browser coverage for invitations, drag-and-drop stage transitions, uploads, and notification behavior.
-6. Decide whether the assistant needs real RAG. If yes, add embeddings, tenant-filtered retrieval, citations, and saved conversation models.
-7. Move long-running AI and notification work to a durable queue if request latency or reliability requires it.
-8. Add PostgreSQL RLS only as defense in depth after defining/test-driving policies; do not treat it as a replacement for application scopes.
-9. Add production deployment runbooks, backup/restore verification, health checks, and alert ownership.
-10. Expand router tests beyond the currently covered tenant/RBAC and core application/workspace/interview/task behavior.
+1. Mount and tenant-harden the notification UI; deliver record reminders to the related owner and exclude archived applications from stale alerts.
+2. Mount the theme toggle and finish dark-mode coverage across the dashboard.
+3. Correct or rename analytics `responseRate`, which currently duplicates `interviewRate`.
+4. Add browser coverage for invitations, drag-and-drop stage transitions, uploads, and notification behavior.
+5. Add pgvector embeddings, owner-scoped retrieval, and validated citations to Assistant Chat.
+6. Add durable Inngest indexing with retries, idempotency, deletion handling, and workspace backfill.
+7. Add PostgreSQL RLS only as defense in depth after defining/test-driving policies; do not treat it as a replacement for application scopes.
+8. Add production deployment runbooks, backup/restore verification, health checks, and alert ownership.
+9. Expand router tests beyond the currently covered tenant/RBAC and core application/workspace/interview/task behavior.
