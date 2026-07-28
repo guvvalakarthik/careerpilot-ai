@@ -4,6 +4,7 @@ import { createTRPCRouter, workspaceProcedure, requireRole } from "@/server/api/
 import { extractJobData, calculateFitScore, isAIConfigured, assistantChat, resumeJdMatch, generateSkillPaths, type ChatMessage } from "@/server/ai";
 import { fetchFileTextFromR2, isR2Configured } from "@/server/r2";
 import { recordAudit } from "@/server/api/audit";
+import { ownedApplicationScope, ownerScope } from "@/server/api/ownership";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type PrismaJson = any;
@@ -28,7 +29,7 @@ export const aiRouter = createTRPCRouter({
       }
 
       const opp = await ctx.db.jobOpportunity.findFirst({
-        where: { id: input.opportunityId, workspaceId: ctx.workspaceId },
+        where: { id: input.opportunityId, workspaceId: ctx.workspaceId, ...ownedApplicationScope(ctx.membership.role, ctx.userId) },
       });
       if (!opp) throw new TRPCError({ code: "NOT_FOUND", message: "Opportunity not found" });
 
@@ -119,7 +120,7 @@ export const aiRouter = createTRPCRouter({
       }
 
       const app = await ctx.db.application.findFirst({
-        where: { id: input.applicationId, workspaceId: ctx.workspaceId },
+        where: { id: input.applicationId, workspaceId: ctx.workspaceId, ...ownerScope(ctx.membership.role, ctx.userId) },
         include: { opportunity: true },
       });
       if (!app) throw new TRPCError({ code: "NOT_FOUND", message: "Application not found" });
@@ -209,24 +210,24 @@ export const aiRouter = createTRPCRouter({
       // Build context from workspace data
       const [applications, interviews, contacts, tasks] = await Promise.all([
         ctx.db.application.findMany({
-          where: { workspaceId: ctx.workspaceId },
+          where: { workspaceId: ctx.workspaceId, ...ownerScope(ctx.membership.role, ctx.userId) },
           include: { opportunity: { include: { company: true } } },
           orderBy: { updatedAt: "desc" },
           take: 20,
         }),
         ctx.db.interview.findMany({
-          where: { workspaceId: ctx.workspaceId, outcome: "PENDING" },
+          where: { workspaceId: ctx.workspaceId, ...ownedApplicationScope(ctx.membership.role, ctx.userId), outcome: "PENDING" },
           include: { application: { include: { opportunity: { include: { company: true } } } } },
           orderBy: { scheduledAt: "asc" },
           take: 10,
         }),
         ctx.db.contact.findMany({
-          where: { workspaceId: ctx.workspaceId },
+          where: { workspaceId: ctx.workspaceId, ...ownerScope(ctx.membership.role, ctx.userId) },
           include: { company: true },
           take: 15,
         }),
         ctx.db.task.findMany({
-          where: { workspaceId: ctx.workspaceId, status: { in: ["OPEN", "IN_PROGRESS"] } },
+          where: { workspaceId: ctx.workspaceId, ...ownerScope(ctx.membership.role, ctx.userId), status: { in: ["OPEN", "IN_PROGRESS"] } },
           include: { application: { include: { opportunity: true } } },
           orderBy: { dueAt: "asc" },
           take: 10,
@@ -317,6 +318,7 @@ export const aiRouter = createTRPCRouter({
         where: {
           id: input.documentId,
           workspaceId: ctx.workspaceId,
+          ...ownerScope(ctx.membership.role, ctx.userId),
         },
       });
       if (!doc) {

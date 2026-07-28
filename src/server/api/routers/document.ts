@@ -3,6 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, workspaceProcedure, requireRole } from "@/server/api/trpc";
 import { recordAudit } from "@/server/api/audit";
 import { getDownloadUrl, deleteFromR2, isR2Configured } from "@/server/r2";
+import { ownerScope, resolveRecordOwner } from "@/server/api/ownership";
 
 const documentTypeEnum = z.enum([
   "RESUME",
@@ -31,6 +32,7 @@ export const documentRouter = createTRPCRouter({
       return ctx.db.document.findMany({
         where: {
           workspaceId: ctx.workspaceId,
+          ...ownerScope(ctx.membership.role, ctx.userId),
           ...(input.type ? { type: input.type } : {}),
         },
         include: {
@@ -48,6 +50,7 @@ export const documentRouter = createTRPCRouter({
     .input(
       z.object({
         workspaceId: z.string(),
+        ownerId: z.string().optional(),
         type: documentTypeEnum.default("OTHER"),
         fileName: z.string().min(1).max(255),
         storageKey: z.string().min(1),
@@ -58,9 +61,11 @@ export const documentRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      const ownerId = await resolveRecordOwner({ db: ctx.db, workspaceId: ctx.workspaceId, actorId: ctx.userId, actorRole: ctx.membership.role, requestedOwnerId: input.ownerId });
       const doc = await ctx.db.document.create({
         data: {
           workspaceId: ctx.workspaceId,
+          ownerId,
           type: input.type,
           fileName: input.fileName,
           storageKey: input.storageKey,
@@ -100,7 +105,7 @@ export const documentRouter = createTRPCRouter({
     .input(z.object({ workspaceId: z.string(), documentId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const doc = await ctx.db.document.findFirst({
-        where: { id: input.documentId, workspaceId: ctx.workspaceId },
+        where: { id: input.documentId, workspaceId: ctx.workspaceId, ...ownerScope(ctx.membership.role, ctx.userId) },
       });
       if (!doc) throw new TRPCError({ code: "NOT_FOUND", message: "Document not found" });
 
@@ -130,7 +135,7 @@ export const documentRouter = createTRPCRouter({
     .input(z.object({ workspaceId: z.string(), documentId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const doc = await ctx.db.document.findFirst({
-        where: { id: input.documentId, workspaceId: ctx.workspaceId },
+        where: { id: input.documentId, workspaceId: ctx.workspaceId, ...ownerScope(ctx.membership.role, ctx.userId) },
       });
       if (!doc) throw new TRPCError({ code: "NOT_FOUND", message: "Document not found" });
 

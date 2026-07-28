@@ -7,6 +7,7 @@ import {
   requireRole,
 } from "@/server/api/trpc";
 import { recordAudit } from "@/server/api/audit";
+import { ownedApplicationScope, ownerScope } from "@/server/api/ownership";
 
 function slugify(name: string): string {
   return (
@@ -100,9 +101,19 @@ export const workspaceRouter = createTRPCRouter({
   removeMember: requireRole(["OWNER"])
     .input(z.object({ workspaceId: z.string(), memberUserId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      if (input.memberUserId === ctx.userId) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Owner cannot remove themselves" });
+      const target = await ctx.db.membership.findUnique({ where: { workspaceId_userId: { workspaceId: ctx.workspaceId, userId: input.memberUserId } } });
+      if (!target) throw new TRPCError({ code: "NOT_FOUND", message: "Member not found" });
+      if (target.role === "OWNER") {
+        const ownerCount = await ctx.db.membership.count({ where: { workspaceId: ctx.workspaceId, role: "OWNER" } });
+        if (ownerCount <= 1) throw new TRPCError({ code: "BAD_REQUEST", message: "A workspace must retain at least one owner" });
       }
+      const ownedRecords = await Promise.all([
+        ctx.db.application.count({ where: { workspaceId: ctx.workspaceId, ownerId: input.memberUserId } }),
+        ctx.db.contact.count({ where: { workspaceId: ctx.workspaceId, ownerId: input.memberUserId } }),
+        ctx.db.task.count({ where: { workspaceId: ctx.workspaceId, ownerId: input.memberUserId } }),
+        ctx.db.document.count({ where: { workspaceId: ctx.workspaceId, ownerId: input.memberUserId } }),
+      ]);
+      if (ownedRecords.some((count) => count > 0)) throw new TRPCError({ code: "CONFLICT", message: "Reassign this member's records before removing them" });
 
       await ctx.db.membership.delete({
         where: {
@@ -131,6 +142,9 @@ export const workspaceRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      if (ctx.membership.role === "COACH" && input.role !== "SEEKER") {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Coaches may only invite seekers" });
+      }
       const user = await ctx.db.user.findUnique({
         where: { email: input.email },
       });
@@ -183,11 +197,11 @@ export const workspaceRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      if (input.memberUserId === ctx.userId && input.role !== "OWNER") {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "You cannot demote yourself. Transfer ownership first.",
-        });
+      const target = await ctx.db.membership.findUnique({ where: { workspaceId_userId: { workspaceId: ctx.workspaceId, userId: input.memberUserId } } });
+      if (!target) throw new TRPCError({ code: "NOT_FOUND", message: "Member not found" });
+      if (target.role === "OWNER" && input.role !== "OWNER") {
+        const ownerCount = await ctx.db.membership.count({ where: { workspaceId: ctx.workspaceId, role: "OWNER" } });
+        if (ownerCount <= 1) throw new TRPCError({ code: "BAD_REQUEST", message: "Transfer ownership before demoting the last owner" });
       }
 
       const membership = await ctx.db.membership.update({
@@ -216,12 +230,12 @@ export const workspaceRouter = createTRPCRouter({
       const [companies, opportunities, applications, contacts, interviews, tasks] =
         await Promise.all([
           ctx.db.company.count({ where: { workspaceId: ctx.workspaceId } }),
-          ctx.db.jobOpportunity.count({ where: { workspaceId: ctx.workspaceId } }),
-          ctx.db.application.count({ where: { workspaceId: ctx.workspaceId } }),
-          ctx.db.contact.count({ where: { workspaceId: ctx.workspaceId } }),
-          ctx.db.interview.count({ where: { workspaceId: ctx.workspaceId } }),
+          ctx.db.jobOpportunity.count({ where: { workspaceId: ctx.workspaceId, ...ownedApplicationScope(ctx.membership.role, ctx.userId) } }),
+          ctx.db.application.count({ where: { workspaceId: ctx.workspaceId, ...ownerScope(ctx.membership.role, ctx.userId) } }),
+          ctx.db.contact.count({ where: { workspaceId: ctx.workspaceId, ...ownerScope(ctx.membership.role, ctx.userId) } }),
+          ctx.db.interview.count({ where: { workspaceId: ctx.workspaceId, ...ownedApplicationScope(ctx.membership.role, ctx.userId) } }),
           ctx.db.task.count({
-            where: { workspaceId: ctx.workspaceId, status: "OPEN" },
+            where: { workspaceId: ctx.workspaceId, ...ownerScope(ctx.membership.role, ctx.userId), status: "OPEN" },
           }),
         ]);
 

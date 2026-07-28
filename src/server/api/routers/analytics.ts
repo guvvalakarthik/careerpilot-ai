@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
+import { ownerScope } from "@/server/api/ownership";
 
 const STAGE_ORDER = [
   "CAPTURED",
@@ -19,6 +20,7 @@ export const analyticsRouter = createTRPCRouter({
         by: ["stage"],
         where: {
           workspaceId: ctx.workspaceId,
+          ...ownerScope(ctx.membership.role, ctx.userId),
           stage: { notIn: ["REJECTED", "WITHDRAWN", "ARCHIVED"] },
         },
         _count: true,
@@ -36,12 +38,13 @@ export const analyticsRouter = createTRPCRouter({
     .input(z.object({ workspaceId: z.string() }))
     .query(async ({ ctx }) => {
       const total = await ctx.db.application.count({
-        where: { workspaceId: ctx.workspaceId },
+        where: { workspaceId: ctx.workspaceId, ...ownerScope(ctx.membership.role, ctx.userId) },
       });
 
       const applied = await ctx.db.application.count({
         where: {
           workspaceId: ctx.workspaceId,
+          ...ownerScope(ctx.membership.role, ctx.userId),
           stage: { notIn: ["CAPTURED", "RESEARCHING", "READY_TO_APPLY", "WITHDRAWN", "ARCHIVED"] },
         },
       });
@@ -49,6 +52,7 @@ export const analyticsRouter = createTRPCRouter({
       const interviewing = await ctx.db.application.count({
         where: {
           workspaceId: ctx.workspaceId,
+          ...ownerScope(ctx.membership.role, ctx.userId),
           stage: { in: ["INTERVIEWING", "OFFER", "ACCEPTED"] },
         },
       });
@@ -56,12 +60,13 @@ export const analyticsRouter = createTRPCRouter({
       const offers = await ctx.db.application.count({
         where: {
           workspaceId: ctx.workspaceId,
+          ...ownerScope(ctx.membership.role, ctx.userId),
           stage: { in: ["OFFER", "ACCEPTED"] },
         },
       });
 
       const accepted = await ctx.db.application.count({
-        where: { workspaceId: ctx.workspaceId, stage: "ACCEPTED" },
+        where: { workspaceId: ctx.workspaceId, ...ownerScope(ctx.membership.role, ctx.userId), stage: "ACCEPTED" },
       });
 
       return {
@@ -81,7 +86,7 @@ export const analyticsRouter = createTRPCRouter({
     .input(z.object({ workspaceId: z.string() }))
     .query(async ({ ctx }) => {
       const apps = await ctx.db.application.findMany({
-        where: { workspaceId: ctx.workspaceId },
+        where: { workspaceId: ctx.workspaceId, ...ownerScope(ctx.membership.role, ctx.userId) },
         select: { stage: true, createdAt: true, lastStageAt: true, appliedAt: true },
       });
 
@@ -124,6 +129,7 @@ export const analyticsRouter = createTRPCRouter({
       const apps = await ctx.db.application.findMany({
         where: {
           workspaceId: ctx.workspaceId,
+          ...ownerScope(ctx.membership.role, ctx.userId),
           createdAt: { gte: sixMonthsAgo },
         },
         select: { createdAt: true, stage: true },
