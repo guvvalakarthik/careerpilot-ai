@@ -1,6 +1,8 @@
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, workspaceProcedure, requireRole } from "@/server/api/trpc";
 import { recordAudit } from "@/server/api/audit";
+import { ownedApplicationScope, ownerScope } from "@/server/api/ownership";
 
 export const companyRouter = createTRPCRouter({
   list: workspaceProcedure
@@ -31,8 +33,8 @@ export const companyRouter = createTRPCRouter({
       const company = await ctx.db.company.findFirst({
         where: { id: input.companyId, workspaceId: ctx.workspaceId },
         include: {
-          opportunities: { include: { application: true } },
-          contacts: true,
+          opportunities: { where: { ...ownedApplicationScope(ctx.membership.role, ctx.userId) }, include: { application: true } },
+          contacts: { where: { ...ownerScope(ctx.membership.role, ctx.userId) } },
         },
       });
       if (!company) throw new Error("Company not found");
@@ -85,6 +87,8 @@ export const companyRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      const existing = await ctx.db.company.findFirst({ where: { id: input.companyId, workspaceId: ctx.workspaceId } });
+      if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Company not found" });
       return ctx.db.company.update({
         where: { id: input.companyId },
         data: {
@@ -99,9 +103,8 @@ export const companyRouter = createTRPCRouter({
   delete: requireRole(["OWNER", "COACH"])
     .input(z.object({ workspaceId: z.string(), companyId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      await ctx.db.company.delete({
-        where: { id: input.companyId },
-      });
+      const deleted = await ctx.db.company.deleteMany({ where: { id: input.companyId, workspaceId: ctx.workspaceId } });
+      if (deleted.count === 0) throw new TRPCError({ code: "NOT_FOUND", message: "Company not found" });
 
       await recordAudit({
         db: ctx.db,

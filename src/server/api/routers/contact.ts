@@ -2,6 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, workspaceProcedure, requireRole } from "@/server/api/trpc";
 import { recordAudit } from "@/server/api/audit";
+import { ownerScope, resolveRecordOwner } from "@/server/api/ownership";
 
 export const contactRouter = createTRPCRouter({
   list: workspaceProcedure
@@ -16,6 +17,7 @@ export const contactRouter = createTRPCRouter({
       return ctx.db.contact.findMany({
         where: {
           workspaceId: ctx.workspaceId,
+          ...ownerScope(ctx.membership.role, ctx.userId),
           ...(input.companyId ? { companyId: input.companyId } : {}),
           ...(input.search
             ? {
@@ -40,7 +42,7 @@ export const contactRouter = createTRPCRouter({
     .input(z.object({ workspaceId: z.string(), contactId: z.string() }))
     .query(async ({ ctx, input }) => {
       const contact = await ctx.db.contact.findFirst({
-        where: { id: input.contactId, workspaceId: ctx.workspaceId },
+        where: { id: input.contactId, workspaceId: ctx.workspaceId, ...ownerScope(ctx.membership.role, ctx.userId) },
         include: {
           company: true,
           outreach: { include: { application: { include: { opportunity: true } } } },
@@ -54,6 +56,7 @@ export const contactRouter = createTRPCRouter({
     .input(
       z.object({
         workspaceId: z.string(),
+        ownerId: z.string().optional(),
         name: z.string().min(1).max(100),
         companyId: z.string().optional().nullable(),
         role: z.string().max(100).optional().nullable(),
@@ -65,9 +68,15 @@ export const contactRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      const ownerId = await resolveRecordOwner({ db: ctx.db, workspaceId: ctx.workspaceId, actorId: ctx.userId, actorRole: ctx.membership.role, requestedOwnerId: input.ownerId });
+      if (input.companyId) {
+        const company = await ctx.db.company.findFirst({ where: { id: input.companyId, workspaceId: ctx.workspaceId } });
+        if (!company) throw new TRPCError({ code: "BAD_REQUEST", message: "Company must belong to this workspace" });
+      }
       const contact = await ctx.db.contact.create({
         data: {
           workspaceId: ctx.workspaceId,
+          ownerId,
           name: input.name,
           companyId: input.companyId ?? null,
           role: input.role ?? null,
@@ -110,9 +119,13 @@ export const contactRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       const existing = await ctx.db.contact.findFirst({
-        where: { id: input.contactId, workspaceId: ctx.workspaceId },
+        where: { id: input.contactId, workspaceId: ctx.workspaceId, ...ownerScope(ctx.membership.role, ctx.userId) },
       });
       if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Contact not found" });
+      if (input.companyId) {
+        const company = await ctx.db.company.findFirst({ where: { id: input.companyId, workspaceId: ctx.workspaceId } });
+        if (!company) throw new TRPCError({ code: "BAD_REQUEST", message: "Company must belong to this workspace" });
+      }
 
       const { contactId, ...data } = input;
       // workspaceId is validated by workspaceProcedure middleware
@@ -135,9 +148,8 @@ export const contactRouter = createTRPCRouter({
   delete: requireRole(["OWNER", "COACH"])
     .input(z.object({ workspaceId: z.string(), contactId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      await ctx.db.contact.delete({
-        where: { id: input.contactId },
-      });
+      const deleted = await ctx.db.contact.deleteMany({ where: { id: input.contactId, workspaceId: ctx.workspaceId } });
+      if (deleted.count === 0) throw new TRPCError({ code: "NOT_FOUND", message: "Contact not found" });
 
       await recordAudit({
         db: ctx.db,
@@ -165,7 +177,7 @@ export const contactRouter = createTRPCRouter({
         where: {
           ...(input.contactId ? { contactId: input.contactId } : {}),
           ...(input.applicationId ? { applicationId: input.applicationId } : {}),
-          contact: { workspaceId: ctx.workspaceId },
+          contact: { workspaceId: ctx.workspaceId, ...ownerScope(ctx.membership.role, ctx.userId) },
         },
         include: {
           contact: true,
@@ -187,9 +199,13 @@ export const contactRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       const contact = await ctx.db.contact.findFirst({
-        where: { id: input.contactId, workspaceId: ctx.workspaceId },
+        where: { id: input.contactId, workspaceId: ctx.workspaceId, ...ownerScope(ctx.membership.role, ctx.userId) },
       });
       if (!contact) throw new TRPCError({ code: "NOT_FOUND", message: "Contact not found" });
+      if (input.applicationId) {
+        const application = await ctx.db.application.findFirst({ where: { id: input.applicationId, workspaceId: ctx.workspaceId } });
+        if (!application || application.ownerId !== contact.ownerId) throw new TRPCError({ code: "BAD_REQUEST", message: "Application and contact must have the same workspace owner" });
+      }
 
       const outreach = await ctx.db.outreachMessage.create({
         data: {
@@ -217,7 +233,7 @@ export const contactRouter = createTRPCRouter({
     .input(z.object({ workspaceId: z.string(), outreachId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const outreach = await ctx.db.outreachMessage.findFirst({
-        where: { id: input.outreachId, contact: { workspaceId: ctx.workspaceId } },
+        where: { id: input.outreachId, contact: { workspaceId: ctx.workspaceId, ...ownerScope(ctx.membership.role, ctx.userId) } },
       });
       if (!outreach) throw new TRPCError({ code: "NOT_FOUND", message: "Outreach message not found" });
 
@@ -231,7 +247,7 @@ export const contactRouter = createTRPCRouter({
     .input(z.object({ workspaceId: z.string(), outreachId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const outreach = await ctx.db.outreachMessage.findFirst({
-        where: { id: input.outreachId, contact: { workspaceId: ctx.workspaceId } },
+        where: { id: input.outreachId, contact: { workspaceId: ctx.workspaceId, ...ownerScope(ctx.membership.role, ctx.userId) } },
       });
       if (!outreach) throw new TRPCError({ code: "NOT_FOUND", message: "Outreach message not found" });
 
