@@ -47,7 +47,7 @@ Status meanings:
 | Production abuse limits | Configured integration | Upstash required in production; memory limiter in development/test |
 | Unit/integration/E2E tests | Implemented | Vitest, PostgreSQL integration config, Playwright critical flows |
 | GitHub Actions CI | Implemented | Quality and PostgreSQL/Playwright jobs |
-| pgvector RAG/citations | Not implemented | No vector column, embedding job, retrieval, or citation model |
+| pgvector RAG/citations | Foundation implemented | `vector(768)`, HNSW, chunking, normalized embeddings, and scoped repository exist; no indexing job or citations yet |
 | Inngest/background queue | Not implemented | No Inngest client, functions, or durable AI job queue |
 | Saved assistant history | Not implemented | Chat state is client-side for the current session |
 | PWA/native mobile app | Not implemented | Responsive web application only |
@@ -61,7 +61,7 @@ flowchart LR
     App --> Auth[Auth.js JWT session]
     TRPC --> Membership[workspaceProcedure and role middleware]
     Membership --> Prisma[Prisma Client]
-    Prisma --> Postgres[(PostgreSQL)]
+    Prisma --> Postgres[(PostgreSQL + pgvector)]
     TRPC --> Gemini[Google Gemini]
     App --> R2[Cloudflare R2]
     App --> Resend[Resend]
@@ -104,7 +104,7 @@ The root tRPC router exposes:
 
 ### Workspace boundary
 
-Collaborative pipeline, contact, interview, task, document, AI-run, audit, and notification records are linked directly or indirectly to a workspace. `CandidateProfile` is user-level and `SkillRelationship` is a global cache. `workspaceProcedure`:
+Collaborative pipeline, contact, interview, task, document, AI-run, audit, notification, and RAG knowledge records are linked directly or indirectly to a workspace. Knowledge sources also carry an owner, and chunks repeat the workspace key under a composite foreign key so a chunk cannot cross tenants. `CandidateProfile` is user-level and `SkillRelationship` is a global cache. `workspaceProcedure`:
 
 1. Requires an authenticated session with a user ID.
 2. Reads `workspaceId` from the raw tRPC input.
@@ -159,7 +159,7 @@ The UI supports drag-and-drop, search, stage filters, and company filters.
 
 ## AI implementation
 
-The server uses `@google/generative-ai` with `gemini-flash-latest`. It does not use the Vercel AI SDK.
+The server uses `@google/genai` with `gemini-flash-latest` for generation and a feature-gated `gemini-embedding-001` foundation for retrieval embeddings. It does not use the Vercel AI SDK.
 
 Implemented operations:
 
@@ -305,8 +305,8 @@ Not guaranteed by repository code:
 2. Mount the theme toggle and finish dark-mode coverage across the dashboard.
 3. Correct or rename analytics `responseRate`, which currently duplicates `interviewRate`.
 4. Add browser coverage for invitations, drag-and-drop stage transitions, uploads, and notification behavior.
-5. Add pgvector embeddings, owner-scoped retrieval, and validated citations to Assistant Chat.
-6. Add durable Inngest indexing with retries, idempotency, deletion handling, and workspace backfill.
+5. Connect tenant/owner-scoped vector retrieval and validated citations to Assistant Chat.
+6. Add durable Inngest source indexing with retries, idempotency, deletion handling, and workspace backfill.
 7. Add PostgreSQL RLS only as defense in depth after defining/test-driving policies; do not treat it as a replacement for application scopes.
 8. Add backup/restore verification, health checks, and alert ownership to the production migration runbook.
 9. Expand router tests beyond the currently covered tenant/RBAC and core application/workspace/interview/task behavior.

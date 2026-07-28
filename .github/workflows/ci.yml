@@ -53,7 +53,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:16-alpine
+        image: pgvector/pgvector:0.8.5-pg16
         env:
           POSTGRES_USER: ci
           POSTGRES_PASSWORD: ci

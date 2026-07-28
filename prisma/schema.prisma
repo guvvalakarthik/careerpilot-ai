@@ -82,6 +82,19 @@ enum AiRunStatus {
   FAILED
 }
 
+enum KnowledgeSourceType {
+  DOCUMENT
+  CANDIDATE_PROFILE
+  JOB_OPPORTUNITY
+}
+
+enum KnowledgeIndexStatus {
+  PENDING
+  PROCESSING
+  READY
+  FAILED
+}
+
 enum NotificationType {
   TASK_DUE
   DEADLINE_APPROACHING
@@ -113,6 +126,7 @@ model User {
   ownedContacts     Contact[]         @relation("ContactOwner")
   ownedTasks        Task[]            @relation("TaskOwner")
   ownedDocuments    Document[]        @relation("DocumentOwner")
+  knowledgeSources  KnowledgeSource[] @relation("KnowledgeSourceOwner")
 }
 
 model Account {
@@ -160,17 +174,19 @@ model Workspace {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  memberships   Membership[]
-  companies     Company[]
-  opportunities JobOpportunity[]
-  applications  Application[]
-  contacts      Contact[]
-  interviews    Interview[]
-  tasks         Task[]
-  documents     Document[]
-  aiRuns        AiRun[]
-  auditEvents   AuditEvent[]
-  notifications Notification[]
+  memberships      Membership[]
+  companies        Company[]
+  opportunities    JobOpportunity[]
+  applications     Application[]
+  contacts         Contact[]
+  interviews       Interview[]
+  tasks            Task[]
+  documents        Document[]
+  aiRuns           AiRun[]
+  knowledgeSources KnowledgeSource[]
+  knowledgeChunks  KnowledgeChunk[]
+  auditEvents      AuditEvent[]
+  notifications    Notification[]
 }
 
 model Membership {
@@ -427,6 +443,55 @@ model SkillRelationship {
   @@unique([skillA, skillB, relationship])
   @@index([skillA])
   @@index([skillB])
+}
+
+// ---------- RAG knowledge index ----------
+
+model KnowledgeSource {
+  id                  String               @id @default(cuid())
+  workspaceId         String
+  ownerId             String
+  type                KnowledgeSourceType
+  sourceId            String
+  contentHash         String
+  indexStatus         KnowledgeIndexStatus @default(PENDING)
+  embeddingModel      String               @default("gemini-embedding-001")
+  embeddingDimensions Int                  @default(768)
+  indexVersion        Int                  @default(1)
+  lastIndexedAt       DateTime?
+  errorMessage        String?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+
+  workspace Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  owner     User             @relation("KnowledgeSourceOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  chunks    KnowledgeChunk[]
+
+  @@unique([workspaceId, type, sourceId])
+  @@unique([id, workspaceId])
+  @@index([workspaceId, ownerId, type])
+  @@index([workspaceId, indexStatus])
+}
+
+model KnowledgeChunk {
+  id                String                     @id @default(cuid())
+  knowledgeSourceId String
+  workspaceId       String
+  chunkIndex        Int
+  content           String
+  contentHash       String
+  tokenCount        Int
+  metadata          Json?
+  embedding         Unsupported("vector(768)")
+  createdAt         DateTime                   @default(now())
+
+  knowledgeSource KnowledgeSource @relation(fields: [knowledgeSourceId, workspaceId], references: [id, workspaceId], onDelete: Cascade)
+  workspace       Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([knowledgeSourceId, chunkIndex])
+  @@index([workspaceId, knowledgeSourceId])
+  /// Created as HNSW with vector_cosine_ops in the customized migration.
+  @@index([embedding], map: "KnowledgeChunk_embedding_hnsw_idx")
 }
 
 // ---------- AI & observability ----------
