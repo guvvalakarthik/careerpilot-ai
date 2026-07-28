@@ -1,63 +1,53 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/server/auth";
-import { db } from "@/server/db";
-import { uploadToR2, isR2Configured } from "@/server/r2";
+import { isR2Configured } from "@/server/r2";
+import {
+  createUploadedDocument,
+  DocumentUploadError,
+  MAX_DOCUMENT_BYTES,
+} from "@/server/document-upload";
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
   const session = await auth();
-  if (!session?.user) {
+  if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-
   if (!isR2Configured()) {
-    return NextResponse.json(
-      { error: "R2 storage is not configured. Set R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, and R2_SECRET_ACCESS_KEY." },
-      { status: 503 },
-    );
-  }
-
-  const formData = await req.formData();
-  const file = formData.get("file") as File | null;
-  const workspaceId = formData.get("workspaceId") as string | null;
-
-  if (!file || !workspaceId) {
-    return NextResponse.json({ error: "Missing file or workspaceId" }, { status: 400 });
-  }
-
-  if (file.size > MAX_FILE_SIZE) {
-    return NextResponse.json({ error: "File too large. Max 10MB." }, { status: 413 });
-  }
-
-  const membership = await db.membership.findUnique({
-    where: {
-      workspaceId_userId: { workspaceId, userId: session.user.id },
-    },
-  });
-  if (!membership) {
-    return NextResponse.json({ error: "Not a member of this workspace" }, { status: 403 });
+    return NextResponse.json({ error: "R2 storage is not configured" }, { status: 503 });
   }
 
   try {
-    const buffer = Buffer.from(await file.arrayBuffer());
-    const { storageKey, sizeBytes } = await uploadToR2(
-      workspaceId,
-      buffer,
-      file.name,
-      file.type || "application/octet-stream",
-    );
+    const formData = await req.formData();
+    const file = formData.get("file");
+    const workspaceId = formData.get("workspaceId");
+    const type = formData.get("type");
+    const resumeLabel = formData.get("resumeLabel");
+    const isResume = formData.get("isResume") === "true";
 
-    return NextResponse.json({
-      storageKey,
+    if (!(file instanceof File) || typeof workspaceId !== "string" || typeof type !== "string") {
+      throw new DocumentUploadError("Missing file, workspaceId, or type", 400);
+    }
+    if (file.size > MAX_DOCUMENT_BYTES) {
+      throw new DocumentUploadError("File too large. Max 10MB.", 413);
+    }
+
+    const result = await createUploadedDocument({
+      workspaceId,
+      userId: session.user.id,
+      type,
+      isResume,
+      resumeLabel: typeof resumeLabel === "string" && resumeLabel.trim() ? resumeLabel.trim() : null,
       fileName: file.name,
-      mimeType: file.type || "application/octet-stream",
-      sizeBytes,
+      bytes: Buffer.from(await file.arrayBuffer()),
     });
-  } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Upload failed" },
-      { status: 500 },
-    );
+    return NextResponse.json(result, { status: 201 });
+  } catch (error) {
+    if (error instanceof DocumentUploadError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    console.error("Document upload failed", error instanceof Error ? error.message : "Unknown error");
+    return NextResponse.json({ error: "Upload failed" }, { status: 500 });
   }
 }

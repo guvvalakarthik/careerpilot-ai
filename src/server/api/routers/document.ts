@@ -16,17 +16,10 @@ const documentTypeEnum = z.enum([
 export const documentRouter = createTRPCRouter({
   status: workspaceProcedure
     .input(z.object({ workspaceId: z.string() }))
-    .query(() => {
-      return { configured: isR2Configured() };
-    }),
+    .query(() => ({ configured: isR2Configured() })),
 
   list: workspaceProcedure
-    .input(
-      z.object({
-        workspaceId: z.string(),
-        type: documentTypeEnum.optional(),
-      }),
-    )
+    .input(z.object({ workspaceId: z.string(), type: documentTypeEnum.optional() }))
     .query(async ({ ctx, input }) => {
       return ctx.db.document.findMany({
         where: {
@@ -36,64 +29,17 @@ export const documentRouter = createTRPCRouter({
         include: {
           resumeVersions: {
             include: {
-              applications: { select: { id: true, opportunity: { select: { title: true, company: { select: { name: true } } } } } },
+              applications: {
+                select: {
+                  id: true,
+                  opportunity: { select: { title: true, company: { select: { name: true } } } },
+                },
+              },
             },
           },
         },
         orderBy: { createdAt: "desc" },
       });
-    }),
-
-  create: requireRole(["OWNER", "COACH", "SEEKER"])
-    .input(
-      z.object({
-        workspaceId: z.string(),
-        type: documentTypeEnum.default("OTHER"),
-        fileName: z.string().min(1).max(255),
-        storageKey: z.string().min(1),
-        mimeType: z.string().max(100),
-        sizeBytes: z.number().int().min(1),
-        isResume: z.boolean().optional(),
-        resumeLabel: z.string().max(100).optional().nullable(),
-      }),
-    )
-    .mutation(async ({ ctx, input }) => {
-      const doc = await ctx.db.document.create({
-        data: {
-          workspaceId: ctx.workspaceId,
-          type: input.type,
-          fileName: input.fileName,
-          storageKey: input.storageKey,
-          mimeType: input.mimeType,
-          sizeBytes: input.sizeBytes,
-        },
-      });
-
-      let resumeVersion = null;
-      if (input.isResume || input.type === "RESUME") {
-        const existingCount = await ctx.db.resumeVersion.count({
-          where: { documentId: doc.id },
-        });
-        resumeVersion = await ctx.db.resumeVersion.create({
-          data: {
-            documentId: doc.id,
-            version: existingCount + 1,
-            label: input.resumeLabel ?? null,
-          },
-        });
-      }
-
-      await recordAudit({
-        db: ctx.db,
-        workspaceId: ctx.workspaceId,
-        userId: ctx.userId,
-        action: "document.create",
-        entityType: "Document",
-        entityId: doc.id,
-        metadata: { fileName: input.fileName, type: input.type },
-      });
-
-      return { document: doc, resumeVersion };
     }),
 
   delete: requireRole(["OWNER", "COACH", "SEEKER"])
@@ -104,15 +50,12 @@ export const documentRouter = createTRPCRouter({
       });
       if (!doc) throw new TRPCError({ code: "NOT_FOUND", message: "Document not found" });
 
+      await ctx.db.document.delete({ where: { id: doc.id } });
       if (isR2Configured()) {
-        try {
-          await deleteFromR2(doc.storageKey);
-        } catch {
-          // Continue with DB deletion even if R2 delete fails
-        }
+        await deleteFromR2(doc.storageKey).catch((error) => {
+          console.error("R2 document cleanup failed", error instanceof Error ? error.message : "Unknown error");
+        });
       }
-
-      await ctx.db.document.delete({ where: { id: input.documentId } });
 
       await recordAudit({
         db: ctx.db,
@@ -122,7 +65,6 @@ export const documentRouter = createTRPCRouter({
         entityType: "Document",
         entityId: input.documentId,
       });
-
       return { ok: true };
     }),
 
@@ -133,7 +75,6 @@ export const documentRouter = createTRPCRouter({
         where: { id: input.documentId, workspaceId: ctx.workspaceId },
       });
       if (!doc) throw new TRPCError({ code: "NOT_FOUND", message: "Document not found" });
-
       if (!isR2Configured()) {
         throw new TRPCError({ code: "PRECONDITION_FAILED", message: "R2 storage is not configured" });
       }

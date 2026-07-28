@@ -64,6 +64,14 @@ export const resumeRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      const app = await ctx.db.application.findFirst({
+        where: {
+          id: input.applicationId,
+          workspaceId: ctx.workspaceId,
+          resumeLinks: { some: { id: input.resumeVersionId, document: { workspaceId: ctx.workspaceId } } },
+        },
+      });
+      if (!app) throw new TRPCError({ code: "NOT_FOUND", message: "Resume link not found" });
       await ctx.db.application.update({
         where: { id: input.applicationId },
         data: {

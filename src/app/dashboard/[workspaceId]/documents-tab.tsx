@@ -68,13 +68,6 @@ export function DocumentsTab({ workspaceId }: { workspaceId: string }) {
     ...(selectedType !== "ALL" ? { type: selectedType as never } : {}),
   });
 
-  const createMutation = api.document.create.useMutation({
-    onSuccess: () => {
-      utils.document.list.invalidate({ workspaceId });
-      utils.workspace.stats.invalidate({ workspaceId });
-    },
-  });
-
   const deleteMutation = api.document.delete.useMutation({
     onSuccess: () => {
       utils.document.list.invalidate({ workspaceId });
@@ -95,6 +88,8 @@ export function DocumentsTab({ workspaceId }: { workspaceId: string }) {
       const formData = new FormData();
       formData.append("file", file);
       formData.append("workspaceId", workspaceId);
+      formData.append("type", uploadType);
+      formData.append("isResume", String(uploadType === "RESUME"));
 
       const res = await fetch("/api/upload", {
         method: "POST",
@@ -106,17 +101,8 @@ export function DocumentsTab({ workspaceId }: { workspaceId: string }) {
         throw new Error(data.error ?? "Upload failed");
       }
 
-      const uploadData = await res.json();
-
-      await createMutation.mutateAsync({
-        workspaceId,
-        type: uploadType as never,
-        fileName: uploadData.fileName,
-        storageKey: uploadData.storageKey,
-        mimeType: uploadData.mimeType,
-        sizeBytes: uploadData.sizeBytes,
-        isResume: uploadType === "RESUME",
-      });
+      await utils.document.list.invalidate({ workspaceId });
+      await utils.workspace.stats.invalidate({ workspaceId });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed");
     } finally {
@@ -176,7 +162,7 @@ export function DocumentsTab({ workspaceId }: { workspaceId: string }) {
           type="file"
           onChange={handleFileSelect}
           className="hidden"
-          accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg"
+          accept=".pdf,.docx,.txt,.png,.jpg,.jpeg"
         />
 
         <button
