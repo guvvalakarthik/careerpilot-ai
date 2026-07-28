@@ -129,6 +129,7 @@ export function QuickCaptureModal({ workspaceId }: { workspaceId: string }) {
     try {
       const formData = new FormData();
       formData.append("file", file);
+      formData.append("workspaceId", workspaceId);
 
       const res = await fetch("/api/extract-text", {
         method: "POST",
@@ -165,6 +166,7 @@ export function QuickCaptureModal({ workspaceId }: { workspaceId: string }) {
     try {
       const formData = new FormData();
       formData.append("file", file);
+      formData.append("workspaceId", workspaceId);
 
       const res = await fetch("/api/extract-text", {
         method: "POST",

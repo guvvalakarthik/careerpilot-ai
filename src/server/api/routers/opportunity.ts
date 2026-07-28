@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { createTRPCRouter, workspaceProcedure, requireRole } from "@/server/api/trpc";
+import { createTRPCRouter, workspaceProcedure, requireRole, requireRateLimitedRole } from "@/server/api/trpc";
 import { recordAudit } from "@/server/api/audit";
 import { extractJobData, isAIConfigured } from "@/server/ai";
 import { ownedApplicationScope, resolveRecordOwner } from "@/server/api/ownership";
@@ -41,16 +41,16 @@ export const opportunityRouter = createTRPCRouter({
       return opp;
     }),
 
-  quickCapture: requireRole(["OWNER", "COACH", "SEEKER"])
+  quickCapture: requireRateLimitedRole(["OWNER", "COACH", "SEEKER"], "expensive")
     .input(
       z.object({
-        workspaceId: z.string(),
-        ownerId: z.string().optional(),
-        rawInput: z.string().min(1),
-        sourceUrl: z.string().url().optional().or(z.literal("")),
-        companyName: z.string().optional(),
-        title: z.string().optional(),
-      }),
+        workspaceId: z.string().trim().min(1).max(128),
+        ownerId: z.string().trim().min(1).max(128).optional(),
+        rawInput: z.string().trim().min(1).max(20_000),
+        sourceUrl: z.string().url().max(2_048).optional().or(z.literal("")),
+        companyName: z.string().trim().min(1).max(200).optional(),
+        title: z.string().trim().min(1).max(300).optional(),
+      }).strict(),
     )
     .mutation(async ({ ctx, input }) => {
       const ownerId = await resolveRecordOwner({ db: ctx.db, workspaceId: ctx.workspaceId, actorId: ctx.userId, actorRole: ctx.membership.role, requestedOwnerId: input.ownerId });

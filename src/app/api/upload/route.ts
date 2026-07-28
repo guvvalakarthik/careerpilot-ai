@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/server/auth";
 import { isR2Configured } from "@/server/r2";
+import { limitHttpRequest } from "@/server/rate-limit";
 import {
   createUploadedDocument,
   DocumentUploadError,
@@ -33,6 +34,9 @@ export async function POST(req: NextRequest) {
     if (file.size > MAX_DOCUMENT_BYTES) {
       throw new DocumentUploadError("File too large. Max 10MB.", 413);
     }
+
+    const limited = await limitHttpRequest(req, "upload", `${session.user.id}:${workspaceId}`);
+    if (limited) return limited;
 
     const result = await createUploadedDocument({
       workspaceId,

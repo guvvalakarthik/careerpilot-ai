@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { createTRPCRouter, workspaceProcedure, requireRole } from "@/server/api/trpc";
-import { extractJobData, calculateFitScore, isAIConfigured, assistantChat, resumeJdMatch, generateSkillPaths, type ChatMessage } from "@/server/ai";
+import { createTRPCRouter, workspaceProcedure, requireRateLimitedRole } from "@/server/api/trpc";
+import { extractJobData, calculateFitScore, isAIConfigured, assistantChat, resumeJdMatch, generateSkillPaths } from "@/server/ai";
+import { chatMessagesSchema } from "@/server/ai-boundaries";
 import { fetchFileTextFromR2, isR2Configured } from "@/server/r2";
 import { recordAudit } from "@/server/api/audit";
 import { ownedApplicationScope, ownerScope } from "@/server/api/ownership";
@@ -9,19 +10,21 @@ import { ownedApplicationScope, ownerScope } from "@/server/api/ownership";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type PrismaJson = any;
 
+const idSchema = z.string().trim().min(1).max(128);
+
 export const aiRouter = createTRPCRouter({
   status: workspaceProcedure
-    .input(z.object({ workspaceId: z.string() }))
+    .input(z.object({ workspaceId: idSchema }).strict())
     .query(() => {
       return { configured: isAIConfigured() };
     }),
 
-  extractJob: requireRole(["OWNER", "COACH", "SEEKER"])
+  extractJob: requireRateLimitedRole(["OWNER", "COACH", "SEEKER"], "ai")
     .input(
       z.object({
-        workspaceId: z.string(),
-        opportunityId: z.string(),
-      }),
+        workspaceId: idSchema,
+        opportunityId: idSchema,
+      }).strict(),
     )
     .mutation(async ({ ctx, input }) => {
       if (!isAIConfigured()) {
@@ -107,12 +110,12 @@ export const aiRouter = createTRPCRouter({
       return { opportunity: updated, extracted };
     }),
 
-  fitScore: requireRole(["OWNER", "COACH", "SEEKER"])
+  fitScore: requireRateLimitedRole(["OWNER", "COACH", "SEEKER"], "ai")
     .input(
       z.object({
-        workspaceId: z.string(),
-        applicationId: z.string(),
-      }),
+        workspaceId: idSchema,
+        applicationId: idSchema,
+      }).strict(),
     )
     .mutation(async ({ ctx, input }) => {
       if (!isAIConfigured()) {
@@ -190,17 +193,12 @@ export const aiRouter = createTRPCRouter({
       return { application: updated, result };
     }),
 
-  assistantChat: requireRole(["OWNER", "COACH", "SEEKER"])
+  assistantChat: requireRateLimitedRole(["OWNER", "COACH", "SEEKER"], "ai")
     .input(
       z.object({
-        workspaceId: z.string(),
-        messages: z.array(
-          z.object({
-            role: z.enum(["user", "model"]),
-            content: z.string().min(1).max(4000),
-          }),
-        ).min(1).max(20),
-      }),
+        workspaceId: idSchema,
+        messages: chatMessagesSchema,
+      }).strict(),
     )
     .mutation(async ({ ctx, input }) => {
       if (!isAIConfigured()) {
@@ -274,7 +272,7 @@ export const aiRouter = createTRPCRouter({
       });
 
       const startTime = Date.now();
-      const response = await assistantChat(input.messages as ChatMessage[], context);
+      const response = await assistantChat(input.messages, context);
 
       if (!response) {
         await ctx.db.aiRun.update({
@@ -296,13 +294,13 @@ export const aiRouter = createTRPCRouter({
       return { response };
     }),
 
-  resumeMatch: requireRole(["OWNER", "COACH", "SEEKER"])
+  resumeMatch: requireRateLimitedRole(["OWNER", "COACH", "SEEKER"], "ai")
     .input(
       z.object({
-        workspaceId: z.string(),
-        documentId: z.string(),
-        jdText: z.string().min(50).max(20000),
-      }),
+        workspaceId: idSchema,
+        documentId: idSchema,
+        jdText: z.string().trim().min(50).max(20_000),
+      }).strict(),
     )
     .mutation(async ({ ctx, input }) => {
       if (!isAIConfigured()) {
@@ -425,12 +423,12 @@ export const aiRouter = createTRPCRouter({
       return result;
     }),
 
-  skillPaths: requireRole(["OWNER", "COACH", "SEEKER"])
+  skillPaths: requireRateLimitedRole(["OWNER", "COACH", "SEEKER"], "ai")
     .input(
       z.object({
-        workspaceId: z.string(),
-        skills: z.array(z.string()).min(1).max(50),
-      }),
+        workspaceId: idSchema,
+        skills: z.array(z.string().trim().min(1).max(100)).min(1).max(50),
+      }).strict(),
     )
     .query(async ({ ctx, input }) => {
       const lowerSkills = input.skills.map((s) => s.toLowerCase());
