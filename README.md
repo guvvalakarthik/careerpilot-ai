@@ -60,13 +60,13 @@ Open `http://localhost:3000`. The seed creates:
 demo@careerpilot.dev / demo1234
 ```
 
-Important: Prisma uses the `DATABASE_URL` in your environment or `.env`. Before running a migration, confirm it points to the intended database. For Docker Compose, use:
+The repository's `db:*` scripts reject non-loopback PostgreSQL hosts before Prisma starts. They use `LOCAL_DATABASE_URL`, then `DATABASE_URL`, and otherwise default to:
 
 ```text
 postgresql://careerpilot:careerpilot_dev@localhost:5434/careerpilot
 ```
 
-Do not run local migration commands while `DATABASE_URL` points to a production or shared cloud database.
+Keep production database credentials in the hosting platform. Do not bypass the guarded scripts to run a local production migration. See [Database migration safety](docs/DATABASE_MIGRATIONS.md) for the release workflow.
 
 ## Environment variables
 
@@ -75,6 +75,7 @@ Copy `.env.example` and fill only the integrations you need.
 | Variables | Required when | Behavior if absent |
 |---|---|---|
 | `DATABASE_URL` | Always | Prisma cannot access application data |
+| `LOCAL_DATABASE_URL` | Guarded local database scripts | Defaults to the Docker Compose database |
 | `AUTH_SECRET` | Always | Auth.js sessions are not safely configured |
 | `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` | Google login | Credentials login still works |
 | `GOOGLE_GENERATIVE_AI_API_KEY` | AI features | AI controls report that AI is not configured |
@@ -99,6 +100,9 @@ Copy `.env.example` and fill only the integrations you need.
 | `npm run test:e2e:ci` | Seed the demo account and run Playwright with the managed test server |
 | `npm run db:up` | Start Dockerized PostgreSQL on host port 5434 |
 | `npm run db:migrate` | Create/apply development migrations with Prisma |
+| `npm run db:deploy:local` | Apply committed migrations to loopback PostgreSQL only |
+| `npm run db:status:local` | Verify local migration history |
+| `npm run db:drift:local` | Compare the migrated local database with `schema.prisma` |
 | `npm run db:seed` | Seed the demo user, workspace, and profile |
 | `npm run db:studio` | Open Prisma Studio |
 
