@@ -4,8 +4,6 @@ vi.mock("@/server/auth", () => ({ auth: vi.fn() }));
 import { db } from "@/server/db";
 import { appRouter } from "@/server/api/root";
 
-const runDatabaseTests = process.env.RUN_DB_INTEGRATION === "1";
-const suite = runDatabaseTests ? describe : describe.skip;
 const marker = `rbac-${Date.now()}`;
 
 function caller(userId: string) {
@@ -19,7 +17,7 @@ function caller(userId: string) {
   });
 }
 
-suite("tenant RBAC integration", () => {
+describe("tenant RBAC integration", () => {
   let ownerId: string;
   let coachId: string;
   let seekerAId: string;
