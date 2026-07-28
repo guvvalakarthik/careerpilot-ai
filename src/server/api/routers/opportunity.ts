@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { createTRPCRouter, workspaceProcedure, requireRole } from "@/server/api/trpc";
+import { createTRPCRouter, workspaceProcedure, requireRole, requireRateLimitedRole } from "@/server/api/trpc";
 import { recordAudit } from "@/server/api/audit";
 import { extractJobData, isAIConfigured } from "@/server/ai";
 import { ownedApplicationScope, resolveRecordOwner } from "@/server/api/ownership";
@@ -41,7 +41,7 @@ export const opportunityRouter = createTRPCRouter({
       return opp;
     }),
 
-  quickCapture: requireRole(["OWNER", "COACH", "SEEKER"])
+  quickCapture: requireRateLimitedRole(["OWNER", "COACH", "SEEKER"], "expensive")
     .input(
       z.object({
         workspaceId: z.string(),

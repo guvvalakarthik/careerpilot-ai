@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { db } from "@/server/db";
+import { limitHttpRequest } from "@/server/rate-limit";
 
 const resetSchema = z.object({
   token: z.string().min(1),
@@ -15,6 +16,8 @@ const resetSchema = z.object({
 });
 
 export async function POST(req: Request) {
+  const limited = await limitHttpRequest(req, "passwordReset");
+  if (limited) return limited;
   const body = await req.json().catch(() => null);
   const parsed = resetSchema.safeParse(body);
   if (!parsed.success) {

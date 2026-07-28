@@ -1,20 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/server/auth";
+import { db } from "@/server/db";
+import { limitHttpRequest } from "@/server/rate-limit";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
 export async function POST(req: NextRequest) {
   const session = await auth();
-  if (!session?.user) {
+  if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-
   const formData = await req.formData();
   const file = formData.get("file") as File | null;
+  const workspaceId = formData.get("workspaceId") as string | null;
 
-  if (!file) {
-    return NextResponse.json({ error: "Missing file" }, { status: 400 });
+  if (!file || !workspaceId) {
+    return NextResponse.json({ error: "Missing file or workspaceId" }, { status: 400 });
   }
+
+  const membership = await db.membership.findUnique({
+    where: { workspaceId_userId: { workspaceId, userId: session.user.id } },
+  });
+  if (!membership) {
+    return NextResponse.json({ error: "Not a member of this workspace" }, { status: 403 });
+  }
+
+  const limited = await limitHttpRequest(req, "extract", `${session.user.id}:${workspaceId}`);
+  if (limited) return limited;
 
   if (file.size > MAX_FILE_SIZE) {
     return NextResponse.json({ error: "File too large. Max 5MB." }, { status: 413 });

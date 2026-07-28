@@ -4,6 +4,12 @@ import { ZodError } from "zod";
 import type { Role } from "@prisma/client";
 import { auth } from "@/server/auth";
 import { db } from "@/server/db";
+import {
+  checkRateLimit,
+  RateLimitExceededCause,
+  RateLimitUnavailableError,
+  type RateLimitPolicy,
+} from "@/server/rate-limit";
 
 export async function createTRPCContext(opts: { headers: Headers }) {
   const session = await auth();
@@ -20,6 +26,15 @@ const t = initTRPC.context<Context>().create({
       data: {
         ...shape.data,
         zodError: error.cause instanceof ZodError ? error.cause.flatten() : null,
+        rateLimit:
+          error.cause instanceof RateLimitExceededCause
+            ? {
+                retryAfter: error.cause.result.retryAfter,
+                limit: error.cause.result.limit,
+                remaining: error.cause.result.remaining,
+                reset: error.cause.result.reset,
+              }
+            : null,
       },
     };
   },
@@ -66,5 +81,33 @@ export function requireRole(roles: Role[]) {
       throw new TRPCError({ code: "FORBIDDEN", message: "Insufficient role" });
     }
     return next();
+  });
+}
+export function requireRateLimitedRole(roles: Role[], policy: RateLimitPolicy) {
+  return requireRole(roles).use(async ({ ctx, next }) => {
+    try {
+      const result = await checkRateLimit(
+        policy,
+        `${ctx.userId}:${ctx.workspaceId}`,
+      );
+      if (!result.success) {
+        throw new TRPCError({
+          code: "TOO_MANY_REQUESTS",
+          message: "Too many requests",
+          cause: new RateLimitExceededCause(result),
+        });
+      }
+      return next();
+    } catch (error) {
+      if (error instanceof TRPCError) throw error;
+      if (error instanceof RateLimitUnavailableError) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Rate limiting unavailable",
+          cause: error,
+        });
+      }
+      throw error;
+    }
   });
 }

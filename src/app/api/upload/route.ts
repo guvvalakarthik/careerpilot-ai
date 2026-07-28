@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/server/auth";
 import { db } from "@/server/db";
 import { uploadToR2, isR2Configured } from "@/server/r2";
+import { limitHttpRequest } from "@/server/rate-limit";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
@@ -38,6 +39,8 @@ export async function POST(req: NextRequest) {
   if (!membership) {
     return NextResponse.json({ error: "Not a member of this workspace" }, { status: 403 });
   }
+  const limited = await limitHttpRequest(req, "upload", `${session.user.id}:${workspaceId}`);
+  if (limited) return limited;
 
   try {
     const buffer = Buffer.from(await file.arrayBuffer());

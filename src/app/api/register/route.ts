@@ -4,6 +4,7 @@ import { z } from "zod";
 import { db } from "@/server/db";
 import { recordAudit } from "@/server/api/audit";
 import { sendEmail, welcomeEmailHtml } from "@/server/email";
+import { limitHttpRequest } from "@/server/rate-limit";
 
 const registerSchema = z.object({
   name: z.string().min(2).max(60),
@@ -18,6 +19,8 @@ const registerSchema = z.object({
 });
 
 export async function POST(req: Request) {
+  const limited = await limitHttpRequest(req, "register");
+  if (limited) return limited;
   const body = await req.json().catch(() => null);
   const parsed = registerSchema.safeParse(body);
   if (!parsed.success) {
