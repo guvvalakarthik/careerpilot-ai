@@ -2,6 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, workspaceProcedure, requireRole } from "@/server/api/trpc";
 import { recordAudit } from "@/server/api/audit";
+import { ownerScope, resolveRecordOwner } from "@/server/api/ownership";
 
 const taskStatusEnum = z.enum(["OPEN", "IN_PROGRESS", "DONE", "CANCELLED"]);
 
@@ -19,6 +20,7 @@ export const taskRouter = createTRPCRouter({
       return ctx.db.task.findMany({
         where: {
           workspaceId: ctx.workspaceId,
+          ...ownerScope(ctx.membership.role, ctx.userId),
           ...(input.applicationId ? { applicationId: input.applicationId } : {}),
           ...(input.status ? { status: input.status } : {}),
           ...(input.upcoming
@@ -36,6 +38,7 @@ export const taskRouter = createTRPCRouter({
     .input(
       z.object({
         workspaceId: z.string(),
+        ownerId: z.string().optional(),
         applicationId: z.string().optional().nullable(),
         title: z.string().min(1).max(200),
         description: z.string().max(2000).optional().nullable(),
@@ -43,9 +46,10 @@ export const taskRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      const ownerId = await resolveRecordOwner({ db: ctx.db, workspaceId: ctx.workspaceId, actorId: ctx.userId, actorRole: ctx.membership.role, requestedOwnerId: input.ownerId });
       if (input.applicationId) {
         const app = await ctx.db.application.findFirst({
-          where: { id: input.applicationId, workspaceId: ctx.workspaceId },
+          where: { id: input.applicationId, workspaceId: ctx.workspaceId, ownerId },
         });
         if (!app) throw new TRPCError({ code: "NOT_FOUND", message: "Application not found" });
       }
@@ -53,6 +57,7 @@ export const taskRouter = createTRPCRouter({
       const task = await ctx.db.task.create({
         data: {
           workspaceId: ctx.workspaceId,
+          ownerId,
           applicationId: input.applicationId ?? null,
           title: input.title,
           description: input.description ?? null,
@@ -86,7 +91,7 @@ export const taskRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       const existing = await ctx.db.task.findFirst({
-        where: { id: input.taskId, workspaceId: ctx.workspaceId },
+        where: { id: input.taskId, workspaceId: ctx.workspaceId, ...ownerScope(ctx.membership.role, ctx.userId) },
       });
       if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Task not found" });
 
@@ -110,9 +115,8 @@ export const taskRouter = createTRPCRouter({
   delete: requireRole(["OWNER", "COACH"])
     .input(z.object({ workspaceId: z.string(), taskId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      await ctx.db.task.delete({
-        where: { id: input.taskId },
-      });
+      const deleted = await ctx.db.task.deleteMany({ where: { id: input.taskId, workspaceId: ctx.workspaceId } });
+      if (deleted.count === 0) throw new TRPCError({ code: "NOT_FOUND", message: "Task not found" });
 
       await recordAudit({
         db: ctx.db,

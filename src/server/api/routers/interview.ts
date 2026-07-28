@@ -2,6 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, workspaceProcedure, requireRole } from "@/server/api/trpc";
 import { recordAudit } from "@/server/api/audit";
+import { ownedApplicationScope } from "@/server/api/ownership";
 
 const interviewTypeEnum = z.enum([
   "PHONE_SCREEN",
@@ -34,6 +35,7 @@ export const interviewRouter = createTRPCRouter({
       return ctx.db.interview.findMany({
         where: {
           workspaceId: ctx.workspaceId,
+          ...ownedApplicationScope(ctx.membership.role, ctx.userId),
           ...(input.applicationId ? { applicationId: input.applicationId } : {}),
           ...(input.upcoming
             ? { scheduledAt: { gte: new Date() }, outcome: "PENDING" }
@@ -50,7 +52,7 @@ export const interviewRouter = createTRPCRouter({
     .input(z.object({ workspaceId: z.string(), interviewId: z.string() }))
     .query(async ({ ctx, input }) => {
       const interview = await ctx.db.interview.findFirst({
-        where: { id: input.interviewId, workspaceId: ctx.workspaceId },
+        where: { id: input.interviewId, workspaceId: ctx.workspaceId, ...ownedApplicationScope(ctx.membership.role, ctx.userId) },
         include: { application: { include: { opportunity: true } } },
       });
       if (!interview) throw new TRPCError({ code: "NOT_FOUND", message: "Interview not found" });
@@ -71,7 +73,7 @@ export const interviewRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       const app = await ctx.db.application.findFirst({
-        where: { id: input.applicationId, workspaceId: ctx.workspaceId },
+        where: { id: input.applicationId, workspaceId: ctx.workspaceId, ...(ctx.membership.role === "SEEKER" ? { ownerId: ctx.userId } : {}) },
       });
       if (!app) throw new TRPCError({ code: "NOT_FOUND", message: "Application not found" });
 
@@ -115,7 +117,7 @@ export const interviewRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       const existing = await ctx.db.interview.findFirst({
-        where: { id: input.interviewId, workspaceId: ctx.workspaceId },
+        where: { id: input.interviewId, workspaceId: ctx.workspaceId, ...ownedApplicationScope(ctx.membership.role, ctx.userId) },
       });
       if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Interview not found" });
 
@@ -137,7 +139,7 @@ export const interviewRouter = createTRPCRouter({
     .input(z.object({ workspaceId: z.string(), interviewId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const existing = await ctx.db.interview.findFirst({
-        where: { id: input.interviewId, workspaceId: ctx.workspaceId },
+        where: { id: input.interviewId, workspaceId: ctx.workspaceId, ...ownedApplicationScope(ctx.membership.role, ctx.userId) },
       });
       if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Interview not found" });
 
@@ -150,9 +152,8 @@ export const interviewRouter = createTRPCRouter({
   delete: requireRole(["OWNER", "COACH"])
     .input(z.object({ workspaceId: z.string(), interviewId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      await ctx.db.interview.delete({
-        where: { id: input.interviewId },
-      });
+      const deleted = await ctx.db.interview.deleteMany({ where: { id: input.interviewId, workspaceId: ctx.workspaceId } });
+      if (deleted.count === 0) throw new TRPCError({ code: "NOT_FOUND", message: "Interview not found" });
 
       await recordAudit({
         db: ctx.db,

@@ -23,6 +23,7 @@ export async function POST(req: NextRequest) {
     const file = formData.get("file");
     const workspaceId = formData.get("workspaceId");
     const type = formData.get("type");
+    const ownerId = formData.get("ownerId");
     const resumeLabel = formData.get("resumeLabel");
     const isResume = formData.get("isResume") === "true";
 
@@ -36,6 +37,7 @@ export async function POST(req: NextRequest) {
     const result = await createUploadedDocument({
       workspaceId,
       userId: session.user.id,
+      ownerId: typeof ownerId === "string" && ownerId ? ownerId : undefined,
       type,
       isResume,
       resumeLabel: typeof resumeLabel === "string" && resumeLabel.trim() ? resumeLabel.trim() : null,

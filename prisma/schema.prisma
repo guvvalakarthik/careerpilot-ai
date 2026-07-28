@@ -102,13 +102,17 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  accounts         Account[]
-  sessions         Session[]
-  memberships      Membership[]
-  candidateProfile CandidateProfile?
-  auditEvents      AuditEvent[]
-  notifications    Notification[]
-  aiRuns           AiRun[]
+  accounts          Account[]
+  sessions          Session[]
+  memberships       Membership[]
+  candidateProfile  CandidateProfile?
+  auditEvents       AuditEvent[]
+  notifications     Notification[]
+  aiRuns            AiRun[]
+  ownedApplications Application[]     @relation("ApplicationOwner")
+  ownedContacts     Contact[]         @relation("ContactOwner")
+  ownedTasks        Task[]            @relation("TaskOwner")
+  ownedDocuments    Document[]        @relation("DocumentOwner")
 }
 
 model Account {
@@ -247,6 +251,7 @@ model JobOpportunity {
 model Application {
   id            String           @id @default(cuid())
   workspaceId   String
+  ownerId       String
   opportunityId String           @unique
   stage         ApplicationStage @default(CAPTURED)
   fitScore      Int? // 0-100
@@ -259,6 +264,7 @@ model Application {
   lastStageAt   DateTime         @default(now()) // for staleness detection
 
   workspace   Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  owner       User              @relation("ApplicationOwner", fields: [ownerId], references: [id], onDelete: Restrict)
   opportunity JobOpportunity    @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
   interviews  Interview[]
   tasks       Task[]
@@ -267,6 +273,7 @@ model Application {
   resumeLinks ResumeVersion[]
 
   @@index([workspaceId, stage])
+  @@index([workspaceId, ownerId])
 }
 
 model DecisionEvent {
@@ -287,6 +294,7 @@ model DecisionEvent {
 model Contact {
   id              String    @id @default(cuid())
   workspaceId     String
+  ownerId         String
   companyId       String?
   name            String
   role            String?
@@ -300,21 +308,23 @@ model Contact {
   updatedAt       DateTime  @updatedAt
 
   workspace Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  owner     User              @relation("ContactOwner", fields: [ownerId], references: [id], onDelete: Restrict)
   company   Company?          @relation(fields: [companyId], references: [id])
   outreach  OutreachMessage[]
 
   @@index([workspaceId])
+  @@index([workspaceId, ownerId])
 }
 
 model OutreachMessage {
-  id            String   @id @default(cuid())
+  id            String    @id @default(cuid())
   applicationId String?
   contactId     String
   subject       String?
   body          String
-  approved      Boolean  @default(false)
+  approved      Boolean   @default(false)
   sentAt        DateTime?
-  createdAt     DateTime @default(now())
+  createdAt     DateTime  @default(now())
 
   application Application? @relation(fields: [applicationId], references: [id])
   contact     Contact      @relation(fields: [contactId], references: [id], onDelete: Cascade)
@@ -347,6 +357,7 @@ model Interview {
 model Task {
   id            String     @id @default(cuid())
   workspaceId   String
+  ownerId       String
   applicationId String?
   interviewId   String?
   title         String
@@ -358,10 +369,12 @@ model Task {
   updatedAt     DateTime   @updatedAt
 
   workspace   Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  owner       User         @relation("TaskOwner", fields: [ownerId], references: [id], onDelete: Restrict)
   application Application? @relation(fields: [applicationId], references: [id], onDelete: Cascade)
   interview   Interview?   @relation(fields: [interviewId], references: [id])
 
   @@index([workspaceId, status, dueAt])
+  @@index([workspaceId, ownerId])
 }
 
 // ---------- Documents ----------
@@ -369,6 +382,7 @@ model Task {
 model Document {
   id          String       @id @default(cuid())
   workspaceId String
+  ownerId     String
   type        DocumentType @default(OTHER)
   fileName    String
   storageKey  String       @unique // R2 object key
@@ -377,9 +391,11 @@ model Document {
   createdAt   DateTime     @default(now())
 
   workspace      Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  owner          User            @relation("DocumentOwner", fields: [ownerId], references: [id], onDelete: Restrict)
   resumeVersions ResumeVersion[]
 
   @@index([workspaceId, type])
+  @@index([workspaceId, ownerId])
 }
 
 model ResumeVersion {
@@ -398,15 +414,15 @@ model ResumeVersion {
 // ---------- Skill relationships (lightweight knowledge graph) ----------
 
 model SkillRelationship {
-  id             String   @id @default(cuid())
-  skillA         String   // canonical lowercase skill name
-  skillB         String   // related skill name
-  relationship   String   // e.g. "transferable", "prerequisite", "complementary", "synonym"
-  strength       Float    @default(0.5) // 0.0 - 1.0
-  reason         String?  // e.g. "Both use component-based architecture"
-  estimatedTime  String?  // e.g. "1-2 weeks" to bridge skillA -> skillB
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id            String   @id @default(cuid())
+  skillA        String // canonical lowercase skill name
+  skillB        String // related skill name
+  relationship  String // e.g. "transferable", "prerequisite", "complementary", "synonym"
+  strength      Float    @default(0.5) // 0.0 - 1.0
+  reason        String? // e.g. "Both use component-based architecture"
+  estimatedTime String? // e.g. "1-2 weeks" to bridge skillA -> skillB
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   @@unique([skillA, skillB, relationship])
   @@index([skillA])

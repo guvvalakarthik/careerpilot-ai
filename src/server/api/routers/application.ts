@@ -6,6 +6,7 @@ import {
   requireRole,
 } from "@/server/api/trpc";
 import { recordAudit } from "@/server/api/audit";
+import { ownerScope } from "@/server/api/ownership";
 
 const stageEnum = z.enum([
   "CAPTURED",
@@ -47,6 +48,7 @@ export const applicationRouter = createTRPCRouter({
       return ctx.db.application.findMany({
         where: {
           workspaceId: ctx.workspaceId,
+          ...ownerScope(ctx.membership.role, ctx.userId),
           ...(input.stage ? { stage: input.stage } : {}),
           ...(input.companyId ? { opportunity: { companyId: input.companyId } } : {}),
           ...(input.search
@@ -77,6 +79,7 @@ export const applicationRouter = createTRPCRouter({
         where: {
           id: input.applicationId,
           workspaceId: ctx.workspaceId,
+          ...ownerScope(ctx.membership.role, ctx.userId),
         },
         include: {
           opportunity: { include: { company: true } },
@@ -102,7 +105,11 @@ export const applicationRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       const app = await ctx.db.application.findFirst({
-        where: { id: input.applicationId, workspaceId: ctx.workspaceId },
+        where: {
+          id: input.applicationId,
+          workspaceId: ctx.workspaceId,
+          ...ownerScope(ctx.membership.role, ctx.userId),
+        },
       });
       if (!app) throw new TRPCError({ code: "NOT_FOUND", message: "Application not found" });
 
@@ -159,6 +166,15 @@ export const applicationRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      const existing = await ctx.db.application.findFirst({
+        where: {
+          id: input.applicationId,
+          workspaceId: ctx.workspaceId,
+          ...ownerScope(ctx.membership.role, ctx.userId),
+        },
+        select: { id: true },
+      });
+      if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Application not found" });
       return ctx.db.application.update({
         where: { id: input.applicationId },
         data: {
@@ -171,9 +187,10 @@ export const applicationRouter = createTRPCRouter({
   delete: requireRole(["OWNER", "COACH"])
     .input(z.object({ workspaceId: z.string(), applicationId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      await ctx.db.application.delete({
-        where: { id: input.applicationId },
+      const deleted = await ctx.db.application.deleteMany({
+        where: { id: input.applicationId, workspaceId: ctx.workspaceId },
       });
+      if (deleted.count === 0) throw new TRPCError({ code: "NOT_FOUND", message: "Application not found" });
 
       await recordAudit({
         db: ctx.db,

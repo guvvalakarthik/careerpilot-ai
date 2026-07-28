@@ -3,6 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, workspaceProcedure, requireRole } from "@/server/api/trpc";
 import { recordAudit } from "@/server/api/audit";
 import { extractJobData, isAIConfigured } from "@/server/ai";
+import { ownedApplicationScope, resolveRecordOwner } from "@/server/api/ownership";
 
 export const opportunityRouter = createTRPCRouter({
   list: workspaceProcedure
@@ -16,6 +17,7 @@ export const opportunityRouter = createTRPCRouter({
       return ctx.db.jobOpportunity.findMany({
         where: {
           workspaceId: ctx.workspaceId,
+          ...ownedApplicationScope(ctx.membership.role, ctx.userId),
           ...(input.search
             ? { title: { contains: input.search, mode: "insensitive" } }
             : {}),
@@ -32,7 +34,7 @@ export const opportunityRouter = createTRPCRouter({
     .input(z.object({ workspaceId: z.string(), opportunityId: z.string() }))
     .query(async ({ ctx, input }) => {
       const opp = await ctx.db.jobOpportunity.findFirst({
-        where: { id: input.opportunityId, workspaceId: ctx.workspaceId },
+        where: { id: input.opportunityId, workspaceId: ctx.workspaceId, ...ownedApplicationScope(ctx.membership.role, ctx.userId) },
         include: { company: true, application: true },
       });
       if (!opp) throw new TRPCError({ code: "NOT_FOUND", message: "Opportunity not found" });
@@ -43,6 +45,7 @@ export const opportunityRouter = createTRPCRouter({
     .input(
       z.object({
         workspaceId: z.string(),
+        ownerId: z.string().optional(),
         rawInput: z.string().min(1),
         sourceUrl: z.string().url().optional().or(z.literal("")),
         companyName: z.string().optional(),
@@ -50,6 +53,7 @@ export const opportunityRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      const ownerId = await resolveRecordOwner({ db: ctx.db, workspaceId: ctx.workspaceId, actorId: ctx.userId, actorRole: ctx.membership.role, requestedOwnerId: input.ownerId });
       let company = null;
       if (input.companyName) {
         company = await ctx.db.company.findFirst({
@@ -81,6 +85,7 @@ export const opportunityRouter = createTRPCRouter({
       const application = await ctx.db.application.create({
         data: {
           workspaceId: ctx.workspaceId,
+          ownerId,
           opportunityId: opportunity.id,
           stage: "CAPTURED",
         },
@@ -185,6 +190,12 @@ export const opportunityRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      const existing = await ctx.db.jobOpportunity.findFirst({ where: { id: input.opportunityId, workspaceId: ctx.workspaceId, ...ownedApplicationScope(ctx.membership.role, ctx.userId) } });
+      if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Opportunity not found" });
+      if (input.companyId) {
+        const company = await ctx.db.company.findFirst({ where: { id: input.companyId, workspaceId: ctx.workspaceId } });
+        if (!company) throw new TRPCError({ code: "BAD_REQUEST", message: "Company must belong to this workspace" });
+      }
       const { opportunityId, ...data } = input;
       return ctx.db.jobOpportunity.update({
         where: { id: opportunityId },
@@ -205,9 +216,8 @@ export const opportunityRouter = createTRPCRouter({
   delete: requireRole(["OWNER", "COACH"])
     .input(z.object({ workspaceId: z.string(), opportunityId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      await ctx.db.jobOpportunity.delete({
-        where: { id: input.opportunityId },
-      });
+      const deleted = await ctx.db.jobOpportunity.deleteMany({ where: { id: input.opportunityId, workspaceId: ctx.workspaceId } });
+      if (deleted.count === 0) throw new TRPCError({ code: "NOT_FOUND", message: "Opportunity not found" });
 
       await recordAudit({
         db: ctx.db,

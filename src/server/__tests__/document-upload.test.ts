@@ -40,7 +40,7 @@ const docx = Buffer.concat([
 describe("document upload security", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.membership.mockResolvedValue({ id: "membership-1" });
+    mocks.membership.mockResolvedValue({ id: "membership-1", role: "SEEKER" });
     mocks.upload.mockResolvedValue({ storageKey: "unused", sizeBytes: 10 });
     mocks.remove.mockResolvedValue(undefined);
     mocks.audit.mockResolvedValue(undefined);
@@ -93,6 +93,7 @@ describe("document upload security", () => {
     expect(mocks.documentCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
         workspaceId: "ws-1",
+        ownerId: "user-1",
         fileName: "resume.pdf",
         mimeType: "application/pdf",
       }),

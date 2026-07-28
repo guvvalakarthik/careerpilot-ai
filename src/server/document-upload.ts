@@ -3,6 +3,7 @@ import type { DocumentType } from "@prisma/client";
 import { db } from "@/server/db";
 import { recordAudit } from "@/server/api/audit";
 import { deleteFromR2, uploadToR2 } from "@/server/r2";
+import { resolveRecordOwner } from "@/server/api/ownership";
 
 export const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
 
@@ -91,6 +92,7 @@ export function buildDocumentStorageKey(workspaceId: string, extension: string) 
 export async function createUploadedDocument(input: {
   workspaceId: string;
   userId: string;
+  ownerId?: string;
   type: string;
   isResume: boolean;
   resumeLabel: string | null;
@@ -99,9 +101,16 @@ export async function createUploadedDocument(input: {
 }) {
   const membership = await db.membership.findUnique({
     where: { workspaceId_userId: { workspaceId: input.workspaceId, userId: input.userId } },
-    select: { id: true },
+    select: { id: true, role: true },
   });
   if (!membership) throw new DocumentUploadError("Not a member of this workspace", 403);
+  const ownerId = await resolveRecordOwner({
+    db,
+    workspaceId: input.workspaceId,
+    actorId: input.userId,
+    actorRole: membership.role,
+    requestedOwnerId: input.ownerId,
+  });
   if (!documentTypes.has(input.type as DocumentType)) {
     throw new DocumentUploadError("Invalid document type", 400);
   }
@@ -118,6 +127,7 @@ export async function createUploadedDocument(input: {
       const document = await tx.document.create({
         data: {
           workspaceId: input.workspaceId,
+          ownerId,
           type: input.type as DocumentType,
           fileName: validated.fileName,
           storageKey,
