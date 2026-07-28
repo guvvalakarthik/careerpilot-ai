@@ -12,6 +12,7 @@ This README describes what exists in the repository today. Planned features are 
 - A validated 10-stage application pipeline with drag-and-drop UI and `DecisionEvent` history.
 - Quick Capture for job URLs or pasted descriptions. Raw input is preserved; pasted job text can be structured by Gemini.
 - Candidate profiles, explainable fit scoring, resume-to-JD matching, transferable skill paths, and a workspace-context assistant.
+- A feature-gated pgvector foundation with versioned knowledge sources, bounded text chunking, normalized Gemini embeddings, and tenant/owner-scoped vector retrieval primitives.
 - Contact/outreach, interview, task, document/resume-version, and analytics interfaces.
 - Notification persistence, APIs, and cron generation. A bell component exists, but the current dashboard shell does not mount it.
 - A system-aware theme provider and partial dark styles. The current dashboard shell does not mount the theme toggle.
@@ -27,14 +28,14 @@ This README describes what exists in the repository today. Planned features are 
 |---|---|
 | Web | Next.js 16 App Router, React 19, TypeScript, Tailwind CSS |
 | API | tRPC 11, TanStack Query, Zod |
-| Data | PostgreSQL, Prisma 6 |
+| Data | PostgreSQL 16, pgvector 0.8.5, Prisma 6 |
 | Auth | Auth.js v5, credentials, Google OAuth, JWT sessions |
-| AI | `@google/generative-ai` with Gemini JSON responses and strict Zod output validation |
+| AI | `@google/genai` with validated Gemini generation and 768-dimensional embedding boundaries |
 | Storage | Cloudflare R2 through the AWS S3 SDK, `pdf-parse` for extraction |
 | Email | Resend |
 | Abuse controls | Upstash Redis and `@upstash/ratelimit` |
 | Observability | Sentry for Next.js |
-| Tests and CI | Vitest, Playwright, PostgreSQL 16 service, GitHub Actions |
+| Tests and CI | Vitest, Playwright, pgvector-enabled PostgreSQL 16, GitHub Actions |
 | Intended hosting | Vercel, Neon PostgreSQL, Cloudflare R2 |
 
 ## Local setup
@@ -79,6 +80,7 @@ Copy `.env.example` and fill only the integrations you need.
 | `AUTH_SECRET` | Always | Auth.js sessions are not safely configured |
 | `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` | Google login | Credentials login still works |
 | `GOOGLE_GENERATIVE_AI_API_KEY` | AI features | AI controls report that AI is not configured |
+| `RAG_ENABLED`, `RAG_EMBEDDING_MODEL` | RAG indexing/retrieval | Disabled by default; no RAG path runs |
 | `RESEND_API_KEY`, `RESEND_FROM_EMAIL` | Transactional email | Email sends are skipped and logged |
 | `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME` | Document storage | Upload/download controls return a configuration error |
 | `CRON_SECRET` | Notification cron | Cron fails closed with HTTP 503 |
@@ -137,7 +139,7 @@ npm run test:e2e:ci
 `.github/workflows/ci.yml` runs two jobs for pushes and pull requests to `main`:
 
 1. `quality`: dependency install, Prisma generation, lint, typecheck, unit tests, and production build.
-2. `integration-e2e`: PostgreSQL 16, migrations, six RBAC integration tests, Chromium installation, seed, and four critical browser flows.
+2. `integration-e2e`: pgvector-enabled PostgreSQL 16, guarded migrations and drift checks, RBAC/vector integration tests, Chromium installation, seed, and four critical browser flows.
 
 Playwright covers public/protected navigation, seeded credentials login, workspace access, sign-out, registration, workspace creation, and profile onboarding. Traces, screenshots, videos, and the HTML report are uploaded from CI.
 
@@ -145,8 +147,8 @@ Playwright covers public/protected navigation, seeded credentials login, workspa
 
 The following are not implemented, despite claims in older project documents:
 
-- No pgvector schema, embeddings pipeline, vector retrieval, citations, or saved chat history. The assistant builds bounded context from relational workspace data.
-- No Vercel AI SDK usage. AI calls use the Google Generative AI SDK directly and execute synchronously.
+- The pgvector schema and tested embedding/retrieval primitives exist, but no source indexing job, backfill, citations, or saved chat history is wired yet. `RAG_ENABLED` remains false, and the assistant still uses bounded relational workspace context.
+- No Vercel AI SDK usage. AI calls use `@google/genai` directly and execute synchronously.
 - No Inngest jobs or durable queue. Notification generation is a Vercel cron route; AI work runs in the request path.
 - Quick Capture preserves a URL but does not scrape or fetch the remote page. Paste the job description for reliable extraction.
 - PostgreSQL RLS is not enabled; tenant isolation is enforced in application queries and middleware.
