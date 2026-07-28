@@ -1,413 +1,310 @@
-# CareerPilot AI — Complete Project Overview
+# CareerPilot AI: Implementation Overview
 
-## What is CareerPilot AI?
+This document is the implementation source of truth for the current repository. It separates shipped behavior from integration-dependent behavior and future ideas.
 
-CareerPilot AI is a **multi-tenant, AI-powered job search and career networking platform**. It helps job seekers capture job opportunities, track applications through a structured pipeline, manage recruiter contacts, prepare for interviews, and get AI-powered fit scoring and suggestions — all inside private workspaces.
+## Product scope
 
-### Who is it for?
+CareerPilot AI is a candidate-side job-search system for:
 
-- **Job Seekers** — individuals managing their job search pipeline
-- **Career Coaches** — professionals managing multiple candidates' searches
-- **Small Teams** — a coach + candidate pair working together in a shared workspace
+- Individual job seekers tracking their own work.
+- Career coaches collaborating with one or more seekers.
+- Small shared workspaces with role-based access.
 
-### Core Problem It Solves
+It is not an employer ATS, job board, remote-job scraper, or resume builder.
 
-Job searching is chaotic: you find jobs on LinkedIn, company sites, referrals, and cold emails — then lose track of where you applied, who you talked to, what follow-ups are pending, and whether a role is actually a good fit. CareerPilot AI centralizes all of this with:
+## Feature status
 
-1. **Quick Capture** — paste a URL or JD, AI extracts structured data
-2. **Pipeline Tracking** — 10-stage application workflow with decision history
-3. **AI Fit Scoring** — explainable 0-100 score with missing skills highlighted
-4. **Contact Management** — track recruiters, interviewers, and networking contacts
-5. **Interview Prep** — AI-generated interview questions based on the JD
-6. **Document Vault** — versioned resumes, cover letters, and offer letters
-7. **Smart Notifications** — stale application alerts, upcoming interviews, task reminders
-8. **RAG Assistant** — grounded chat over your own documents and application history
+Status meanings:
 
----
+- **Implemented**: code and UI are present in the repository.
+- **Configured integration**: implemented, but requires external credentials or infrastructure.
+- **Partial**: supporting code exists, but the user-facing or operational flow is incomplete.
+- **Not implemented**: no production implementation exists in this repository.
 
-## Tech Stack
-
-| Layer | Technology | Why |
+| Capability | Status | Implementation notes |
 |---|---|---|
-| **Frontend** | Next.js (App Router), TypeScript, Tailwind CSS | SSR + client components, file-based routing, type safety |
-| **API** | tRPC + Zod | End-to-end type safety, no codegen step, input validation |
-| **Database** | PostgreSQL + Prisma ORM | Relational integrity, migrations, type-safe queries |
-| **Auth** | Auth.js v5 (NextAuth) | Credentials + Google OAuth, JWT sessions, middleware protection |
-| **AI** | Vercel AI SDK + Google Gemini | Structured outputs, streaming, multimodal (PDF parsing) |
-| **Vector Search** | pgvector | RAG over documents, semantic similarity for job matching |
-| **Background Jobs** | Inngest | Reliable async processing for AI runs, notifications, reminders |
-| **File Storage** | Cloudflare R2 | S3-compatible, zero egress fees, stores resumes & documents |
-| **Testing** | Vitest + Playwright | Unit/integration + E2E browser automation |
-| **CI/CD** | GitHub Actions → Vercel | Lint + typecheck + build on every PR, auto-deploy on merge |
-| **Monitoring** | Sentry | Error tracking, performance monitoring |
-| **Database Hosting** | Neon | Serverless Postgres with branching, instant scale-to-zero |
+| Credentials registration/login | Implemented | Auth.js credentials provider with bcrypt password hashes and JWT sessions |
+| Google OAuth | Configured integration | Requires Google client ID and secret |
+| Password reset | Configured integration | Token storage is implemented; delivery requires Resend |
+| Multi-workspace membership | Implemented | Users may belong to multiple workspaces with per-workspace roles |
+| Owner/coach/seeker RBAC | Implemented | Membership, role middleware, ownership scopes, last-owner protection |
+| Candidate onboarding/profile | Implemented | Workspace creation, skills, headline, and experience |
+| Application Kanban | Implemented | Ten stages, search/filter, drag-and-drop, validated transitions |
+| Quick Capture | Implemented | Stores URL or text and creates opportunity plus application |
+| Remote URL scraping | Not implemented | A pasted URL is preserved but not fetched |
+| Job extraction | Configured integration | Gemini structures pasted job text into validated JSON |
+| Fit scoring | Configured integration | Gemini output with deterministic algorithmic fallback for invalid responses |
+| Resume/JD analysis | Configured integration | R2 text extraction plus match, roadmap, and skill-path output |
+| Workspace assistant | Configured integration | Uses bounded relational workspace context; not RAG |
+| Contacts and outreach | Implemented | Owner-scoped contact CRUD and application-linked messages |
+| Interviews and tasks | Implemented | Scheduling, outcomes, due dates, and upcoming view |
+| Document vault | Configured integration | R2 object storage, metadata, signed downloads, resume versions |
+| Analytics | Implemented | Funnel, rates, time-per-stage, and six-month velocity charts |
+| Notifications | Partial | Persistence, routers, cron, and bell component exist; bell is not mounted in current dashboard shell |
+| Notification scheduler | Configured integration | Daily Vercel cron protected by `CRON_SECRET` |
+| Dark mode | Partial | Theme provider and toggle component exist; toggle is not mounted and styles are incomplete |
+| Sentry | Configured integration | Server, edge, client, and request-error instrumentation |
+| Production abuse limits | Configured integration | Upstash required in production; memory limiter in development/test |
+| Unit/integration/E2E tests | Implemented | Vitest, PostgreSQL integration config, Playwright critical flows |
+| GitHub Actions CI | Implemented | Quality and PostgreSQL/Playwright jobs |
+| pgvector RAG/citations | Not implemented | No vector column, embedding job, retrieval, or citation model |
+| Inngest/background queue | Not implemented | No Inngest client, functions, or durable AI job queue |
+| Saved assistant history | Not implemented | Chat state is client-side for the current session |
+| PWA/native mobile app | Not implemented | Responsive web application only |
 
----
+## Runtime architecture
 
-## Architecture Overview
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                        Client (Browser)                      │
-│  Next.js App Router · Tailwind · tRPC React Provider         │
-│  TanStack Query (caching) · Auth.js (JWT in cookie)          │
-└───────────────┬──────────────────────────────┬──────────────┘
-                │                              │
-     ┌──────────▼──────────┐         ┌────────▼─────────┐
-     │   Next.js Server     │         │   Auth.js v5     │
-     │   (Node.js Runtime)  │         │   JWT Sessions   │
-     │                       │         │   Credentials +  │
-     │  ┌─────────────────┐ │         │   Google OAuth   │
-     │  │  tRPC Server    │ │         └────────┬─────────┘
-     │  │  Routers:       │ │                  │
-     │  │  - workspace    │ │                  │
-     │  │  - application  │ │                  │
-     │  │  - contact      │ │                  │
-     │  │  - interview    │ │                  │
-     │  │  - ai           │ │                  │
-     │  │  - document     │ │                  │
-     │  └────────┬────────┘ │                  │
-     │           │          │                  │
-     │  ┌────────▼────────┐ │                  │
-     │  │  Prisma Client  │◄┼──────────────────┘
-     │  └────────┬────────┘ │
-     └───────────┼──────────┘
-                 │
-     ┌───────────▼──────────┐    ┌───────────────────┐
-     │   PostgreSQL          │    │   Cloudflare R2    │
-     │   (Neon / Docker)     │    │   (File Storage)   │
-     │   + pgvector ext      │    └───────────────────┘
-     └───────────────────────┘
-                 │
-     ┌───────────▼──────────┐    ┌───────────────────┐
-     │   Inngest             │    │   Google Gemini    │
-     │   (Background Jobs)   │    │   (AI Model)       │
-     │   - AI extraction     │    │   - Structured OP  │
-     │   - Fit scoring       │    │   - Embeddings     │
-     │   - Notifications     │    │   - Chat           │
-     │   - Staleness checks  │    └───────────────────┘
-     └───────────────────────┘
+```mermaid
+flowchart LR
+    Browser[Next.js React client] --> App[Next.js App Router]
+    Browser --> TRPC[tRPC route handler]
+    App --> Auth[Auth.js JWT session]
+    TRPC --> Membership[workspaceProcedure and role middleware]
+    Membership --> Prisma[Prisma Client]
+    Prisma --> Postgres[(PostgreSQL)]
+    TRPC --> Gemini[Google Gemini]
+    App --> R2[Cloudflare R2]
+    App --> Resend[Resend]
+    Cron[Vercel Cron] --> Notifications[/api/cron/notifications]
+    Notifications --> Postgres
+    App --> Upstash[Upstash rate limits]
+    App --> Sentry[Sentry]
 ```
 
-### Multi-Tenancy Model
+### Request paths
 
-```
-User ──┬── Membership ──── Workspace (tenant boundary)
-       │      (role)            │
-       │                   ┌────┴────┬──────┬──────────┐
-       │                 Company  Contact  Application  Task
-       │                   │                    │
-       │              JobOpportunity       Interview
-       │                                      │
-       └── CandidateProfile              DecisionEvent
-```
+- Server-rendered pages call Auth.js and Prisma directly when loading session-scoped page data.
+- Client interactions use the tRPC route at `/api/trpc/[trpc]`.
+- Credentials auth uses `/api/auth/[...nextauth]`.
+- Registration, password reset, text extraction, upload, and cron use dedicated Next.js route handlers.
+- AI service functions call Gemini synchronously from the server.
+- R2 is accessed only from server-side helpers and routes.
 
-Every domain record (Company, JobOpportunity, Application, Contact, Interview, Task, Document, AiRun, Notification) carries a `workspaceId`. The tRPC `workspaceProcedure` middleware verifies that the authenticated user has an active `Membership` in that workspace before allowing any access.
+## API surface
 
-### RBAC Roles
+The root tRPC router exposes:
 
-| Role | Permissions |
+| Router | Responsibility |
 |---|---|
-| **OWNER** | Full control: create/delete workspace, invite members, remove members, all CRUD |
-| **COACH** | View and manage all data in workspace, manage applications, add contacts, trigger AI |
-| **SEEKER** | Manage own applications, add contacts, trigger AI on own data |
+| `workspace` | Workspace CRUD, membership, invitations, roles, workspace statistics |
+| `candidate` | User-level candidate profile |
+| `company` | Workspace company records |
+| `opportunity` | Job capture and opportunity metadata |
+| `application` | Pipeline queries, details, stage transitions, outcome notes |
+| `contact` | Contacts and outreach messages |
+| `interview` | Interview schedule, update, cancel, delete |
+| `task` | Standalone or application/interview-linked tasks |
+| `document` | Document metadata, listing, signed download, deletion |
+| `resume` | Resume versions and application links |
+| `ai` | Extraction, fit score, assistant, resume match, skill paths |
+| `notification` | User/workspace notification lists and read state |
+| `analytics` | Funnel, rates, stage timing, and velocity |
 
----
+## Tenancy and ownership
 
-## ERD Diagram
+### Workspace boundary
 
-```mermaid
-erDiagram
-    User ||--o{ Account : "OAuth accounts"
-    User ||--o{ Session : "JWT sessions"
-    User ||--o{ Membership : "workspace memberships"
-    User ||--|| CandidateProfile : "1:1 profile"
-    User ||--o{ AuditEvent : "performed actions"
-    User ||--o{ Notification : "receives"
-    User ||--o{ AiRun : "triggered"
+Collaborative pipeline, contact, interview, task, document, AI-run, audit, and notification records are linked directly or indirectly to a workspace. `CandidateProfile` is user-level and `SkillRelationship` is a global cache. `workspaceProcedure`:
 
-    Workspace ||--o{ Membership : "has members"
-    Workspace ||--o{ Company : "owns"
-    Workspace ||--o{ JobOpportunity : "owns"
-    Workspace ||--o{ Application : "owns"
-    Workspace ||--o{ Contact : "owns"
-    Workspace ||--o{ Interview : "owns"
-    Workspace ||--o{ Task : "owns"
-    Workspace ||--o{ Document : "owns"
-    Workspace ||--o{ AiRun : "owns"
-    Workspace ||--o{ AuditEvent : "logs"
-    Workspace ||--o{ Notification : "sends"
+1. Requires an authenticated session with a user ID.
+2. Reads `workspaceId` from the raw tRPC input.
+3. Looks up the composite `(workspaceId, userId)` membership.
+4. Adds `membership` and `workspaceId` to the tRPC context.
 
-    Membership }o--|| User : "user"
-    Membership }o--|| Workspace : "workspace"
+Role-gated procedures compose `requireRole` on top of this middleware.
 
-    Company ||--o{ JobOpportunity : "has openings"
-    Company ||--o{ Contact : "has employees"
+### Record ownership
 
-    JobOpportunity ||--|| Application : "1:1 application"
-    JobOpportunity }o--o| Company : "optional company"
+Applications, contacts, tasks, and documents have `ownerId` fields. Related opportunities and interviews are scoped through their application owner. The ownership helpers are:
 
-    Application ||--o{ Interview : "has interviews"
-    Application ||--o{ Task : "has tasks"
-    Application ||--o{ OutreachMessage : "has outreach"
-    Application ||--o{ DecisionEvent : "stage history"
-    Application ||--o{ ResumeVersion : "attached resumes"
+- `ownerScope(role, userId)`: adds `{ ownerId: userId }` for seekers.
+- `ownedApplicationScope(role, userId)`: scopes records through their linked application.
+- `resolveRecordOwner(...)`: forces seekers to own new records and verifies delegated owners are workspace members.
 
-    Contact ||--o{ OutreachMessage : "receives"
-    Contact }o--o| Company : "works at"
+Companies are workspace-shared reference data rather than seeker-owned records.
 
-    Interview ||--o{ Task : "has prep tasks"
+### Role matrix
 
-    Document ||--o{ ResumeVersion : "versioned resumes"
-    ResumeVersion }o--o{ Application : "used in"
+| Action | Owner | Coach | Seeker |
+|---|---:|---:|---:|
+| Read all pipeline/contact/task/document records | Yes | Yes | No, own records only |
+| Create/update own records | Yes | Yes | Yes |
+| Create records for another member | Yes | Yes | No |
+| Delete applications/contacts/interviews/tasks | Yes | Yes | No |
+| Delete own documents | Yes | Yes | Yes |
+| Invite a seeker | Yes | Yes | No |
+| Invite an owner or coach | Yes | No | No |
+| Rename workspace/change roles/remove members | Yes | No | No |
 
-    AiRun }o--|| Workspace : "scoped to"
-    AiRun }o--|| User : "triggered by"
+Additional invariants:
 
-    AuditEvent }o--o| Workspace : "scoped to"
-    AuditEvent }o--o| User : "performed by"
+- The last owner cannot be removed or demoted.
+- A member with owned applications, contacts, tasks, or documents cannot be removed until records are reassigned.
+- Resume/application links require the same record owner.
+- Peer-owned and cross-tenant IDs are hidden with not-found behavior where ownership scopes apply.
 
-    Notification }o--|| Workspace : "scoped to"
-    Notification }o--|| User : "for user"
+PostgreSQL RLS is not configured. Application middleware and query predicates are the enforced boundary.
+
+## Application workflow
+
+The pipeline stages are:
+
+```text
+CAPTURED -> RESEARCHING -> READY_TO_APPLY -> APPLIED -> INTERVIEWING -> OFFER -> ACCEPTED
 ```
 
-### Entity Details
+`REJECTED`, `WITHDRAWN`, and `ARCHIVED` are terminal/exit paths. `application.changeStage` validates transitions against an allowlist and performs the application update plus `DecisionEvent` creation in one Prisma transaction. Moving to `APPLIED` sets `appliedAt` if it is not already present.
 
-#### Auth Entities (Auth.js managed)
-- **User** — email, passwordHash (credentials), name, image, emailVerified
-- **Account** — OAuth provider accounts (Google), linked to User
-- **Session** — JWT session tokens (if using database sessions; currently using JWT strategy)
-- **VerificationToken** — email verification tokens
+The UI supports drag-and-drop, search, stage filters, and company filters.
 
-#### Tenancy Entities
-- **Workspace** — the tenant boundary; has name, slug (unique)
-- **Membership** — join table: User ↔ Workspace with a Role (OWNER/COACH/SEEKER)
-- **CandidateProfile** — 1:1 with User; headline, skills, experience, desired roles, salary
+## AI implementation
 
-#### Job Pipeline Entities
-- **Company** — name, website, industry, notes; scoped to Workspace
-- **JobOpportunity** — title, rawInput (original capture), sourceUrl, location, employmentType, requiredSkills[], preferredSkills[], salaryRange, deadline; optional Company link; 1:1 with Application
-- **Application** — the core pipeline entity; stage (10-state enum), fitScore (0-100), fitReasons (JSON), missingSkills[], appliedAt, lastStageAt (staleness detection)
-- **DecisionEvent** — audit trail of stage transitions (fromStage → toStage + note)
+The server uses `@google/generative-ai` with `gemini-flash-latest`. It does not use the Vercel AI SDK.
 
-#### Networking Entities
-- **Contact** — name, role, email, linkedinUrl, relationship, lastInteraction, nextAction; optional Company link
-- **OutreachMessage** — subject, body, approved (boolean), sentAt; linked to Contact + optional Application
+Implemented operations:
 
-#### Interview & Task Entities
-- **Interview** — type (PHONE_SCREEN/TECHNICAL/SYSTEM_DESIGN/BEHAVIORAL/HR/ONSITE/OTHER), scheduledAt, durationMins, interviewer, outcome (PENDING/PASSED/FAILED/NO_SHOW/CANCELLED)
-- **Task** — title, description, status (OPEN/IN_PROGRESS/DONE/CANCELLED), dueAt; linked to Application and/or Interview
+- Job-posting extraction.
+- Candidate/job fit score.
+- Workspace-context assistant chat.
+- Resume-to-job match and learning roadmap.
+- Transferable skill-path generation and relationship caching.
 
-#### Document Entities
-- **Document** — type (RESUME/COVER_LETTER/CERTIFICATE/PORTFOLIO/OFFER_LETTER/OTHER), fileName, storageKey (R2), mimeType, sizeBytes
-- **ResumeVersion** — version number, label; linked to Document; many-to-many with Application
+### Boundary controls
 
-#### AI & Observability Entities
-- **AiRun** — type (JOB_EXTRACTION/FIT_SCORING/OUTREACH_DRAFT/INTERVIEW_QUESTIONS/FOLLOW_UP_DRAFT/RESUME_SUGGESTION/ASSISTANT_CHAT), status (PENDING/RUNNING/SUCCEEDED/FAILED), model, output (JSON), latencyMs
-- **AuditEvent** — action, entityType, entityId, metadata (JSON); fire-and-forget logging
-- **Notification** — type (TASK_DUE/DEADLINE_APPROACHING/INTERVIEW_UPCOMING/APPLICATION_STALE/SYSTEM), title, body, readAt
+`src/server/ai-boundaries.ts` defines strict Zod schemas for all model JSON. Model output is rejected when it contains:
 
----
+- Malformed JSON or unknown fields.
+- Wrong types, invalid enums, or invalid dates.
+- Scores outside allowed ranges.
+- Oversized strings, arrays, roadmaps, or skill paths.
+- Skill paths that do not reference the provided matched/missing skills.
 
-## Application Pipeline (State Machine)
+Prompt input is trimmed, deduplicated, and bounded. Chat must start and end with a user message and alternate user/model roles. Model responses are also size-bounded. Untrusted resume, job, workspace, and chat content is explicitly marked as data in prompts.
 
-```mermaid
-stateDiagram-v2
-    [*] --> CAPTURED : Job URL/JD pasted
+Failure behavior:
 
-    CAPTURED --> RESEARCHING : Start researching company
-    CAPTURED --> READY_TO_APPLY : Quick apply decision
+- Invalid extraction, resume match, or chat output becomes a controlled failure.
+- Invalid fit-score output uses the deterministic skill-overlap fallback.
+- Invalid skill paths are discarded as a non-critical enhancement.
+- Explicit extraction, fit-score, assistant, and resume-match routes create `AiRun` records before calling the model and then mark success/failure. Quick Capture writes a successful run when inline extraction returns data and a failed run only if an exception escapes; a null extraction result is currently not logged. Skill-path generation is part of the resume-match run rather than a separate run.
 
-    RESEARCHING --> READY_TO_APPLY : Research complete
-    RESEARCHING --> REJECTED : Not a fit
+The assistant is context-aware, not retrieval-augmented. It loads bounded applications, interviews, contacts, and tasks from PostgreSQL and places them in the prompt. There are no embeddings, citations, or saved conversations.
 
-    READY_TO_APPLY --> APPLIED : Submit application
-    READY_TO_APPLY --> WITHDRAWN : Changed mind
+## Storage and document flow
 
-    APPLIED --> INTERVIEWING : Interview scheduled
-    APPLIED --> REJECTED : Got rejection
-    APPLIED --> WITHDRAWN : Withdrew application
+R2 helpers support:
 
-    INTERVIEWING --> OFFER : Received offer
-    INTERVIEWING --> REJECTED : Rejected after interview
-    INTERVIEWING --> WITHDRAWN : Withdrew during interviews
+- Object upload with a workspace-prefixed generated key.
+- Time-limited signed downloads.
+- Object deletion.
+- PDF/text extraction for resume analysis.
 
-    OFFER --> ACCEPTED : Accepted offer
-    OFFER --> REJECTED : Declined offer
-    OFFER --> WITHDRAWN : Declined offer
+Document metadata and resume versions are stored in PostgreSQL. Access to list, download, delete, and resume links is owner-scoped for seekers.
 
-    REJECTED --> ARCHIVED : Archive
-    WITHDRAWN --> ARCHIVED : Archive
-    ACCEPTED --> ARCHIVED : Archive
+Current merged limitation: object upload and document metadata creation are separate requests. The merged route checks authentication, workspace membership, size, R2 configuration, and a user/workspace rate limit, but it does not yet provide a single atomic upload-plus-metadata transaction, file-signature validation, or guaranteed orphan cleanup.
 
-    CAPTURED --> ARCHIVED : No longer relevant
-```
+## Notifications and scheduled work
 
-Every transition creates a **DecisionEvent** record with `fromStage`, `toStage`, and an optional note — giving a full audit trail of the application journey.
+`vercel.json` schedules `/api/cron/notifications` daily at `08:00 UTC`.
 
----
+The route creates notifications for:
 
-## AI Features
+- Applications with no stage change for at least 14 days.
+- Pending interviews occurring in 24 to 48 hours.
+- Open/in-progress tasks due within 24 hours.
 
-| Feature | AI Run Type | Input | Output |
-|---|---|---|---|
-| **Job Extraction** | `JOB_EXTRACTION` | Raw URL or pasted JD text | Structured: title, company, location, skills, salary, deadline |
-| **Fit Scoring** | `FIT_SCORING` | JD + CandidateProfile | 0-100 score, matching skills, missing skills, reasons (JSON) |
-| **Outreach Draft** | `OUTREACH_DRAFT` | Contact + Application context | Drafted cold email / LinkedIn message |
-| **Interview Questions** | `INTERVIEW_QUESTIONS` | JD + Application context | List of likely technical + behavioral questions |
-| **Follow-up Draft** | `FOLLOW_UP_DRAFT` | Application stage + time since last contact | Polite follow-up email draft |
-| **Resume Suggestion** | `RESUME_SUGGESTION` | JD + ResumeVersion | Tailored bullet point suggestions |
-| **RAG Assistant** | `ASSISTANT_CHAT` | User question + vector search over documents | Grounded answer with citations |
+The route fails closed if `CRON_SECRET` is missing and uses a constant-time bearer-secret comparison. It writes notifications directly during the request; no queue or Inngest worker is involved.
 
-All AI runs are logged in the `AiRun` table with status, latency, model used, and full output — enabling cost tracking and debugging.
+Current limitations: the cron sends each generated reminder to every workspace member instead of the related record owner, and the stale-application terminal filter omits `ARCHIVED`. The `NotificationBell` component is not mounted by the active `AppSidebar` dashboard layout.
 
----
+## Rate limits
 
-## 8-Week Roadmap
+Anonymous routes are keyed by client IP. Authenticated expensive work is keyed by user and workspace where workspace context exists.
 
-| Week | Theme | Key Deliverables |
-|---|---|---|
-| **Week 1** | Foundation | Next.js scaffold, Prisma schema, tRPC + RBAC, Auth.js, Docker, CI, seed |
-| **Week 2** | Pipeline + Quick Capture | Application CRUD, Kanban board UI, Quick Capture modal, stage transitions |
-| **Week 3** | AI Extraction & Fit Scoring | Gemini integration, job extraction from URL/JD, fit score with explainable breakdown |
-| **Week 4** | Contacts & Networking | Contact CRUD, outreach message drafting, LinkedIn import, contact timeline |
-| **Week 5** | Interviews & Tasks | Interview scheduling, prep question generation, task management, calendar view |
-| **Week 6** | Document Vault | R2 upload/download, resume versioning, resume tailoring suggestions, PDF parsing |
-| **Week 7** | RAG Assistant | pgvector setup, document embeddings, grounded chat with citations, chat history |
-| **Week 8** | Testing & Launch | Vitest unit tests, Playwright E2E, Sentry, Vercel + Neon deploy, demo prep |
+| Policy | Limit |
+|---|---:|
+| Credentials login | 5 per 10 minutes |
+| Registration | 3 per hour |
+| Forgot/reset password | 5 per 15 minutes |
+| Text extraction | 10 per minute |
+| Upload | 10 per minute |
+| AI procedures | 20 per minute |
+| Quick Capture/other expensive work | 30 per minute |
 
----
+Production uses Upstash sliding windows and fails closed when Upstash is missing or unavailable. Development and tests use a process-local fixed-window map. HTTP endpoints return 429 responses with retry metadata; tRPC uses `TOO_MANY_REQUESTS` and adds rate-limit data to the formatted error.
 
-## PRD (Product Requirements Document)
+## Data model
 
-### 1. Vision
+Major groups in `prisma/schema.prisma`:
 
-Build an AI-powered job search platform that replaces the scattered spreadsheet + bookmark + email approach with a single, intelligent workspace that tracks every job opportunity from discovery to offer.
+- Auth: `User`, `Account`, `Session`, `VerificationToken`.
+- Tenancy/profile: `Workspace`, `Membership`, `CandidateProfile`.
+- Pipeline: `Company`, `JobOpportunity`, `Application`, `DecisionEvent`.
+- Collaboration: `Contact`, `OutreachMessage`, `Interview`, `Task`.
+- Documents: `Document`, `ResumeVersion`.
+- AI/operations: `SkillRelationship`, `AiRun`, `AuditEvent`, `Notification`.
 
-### 2. Goals
+Although an Auth.js `Session` model exists for adapter compatibility, the configured application session strategy is JWT.
 
-- **G1**: Reduce time-to-apply by 50% through AI-powered job extraction and quick capture
-- **G2**: Provide explainable fit scoring so candidates focus on high-probability roles
-- **G3**: Never lose track of a contact, follow-up, or interview again
-- **G4**: Enable coach-seeker collaboration in shared workspaces
-- **G5**: Ground AI suggestions in the user's own documents (RAG) to avoid generic advice
+## Audit and observability
 
-### 3. Non-Goals (v1)
+`recordAudit` awaits an `AuditEvent` insert but catches failures so auditing does not fail the main operation. It covers significant mutations, not every read or write.
 
-- Not a job board — we don't list jobs, we track jobs the user finds
-- Not a resume builder — we suggest edits, not generate from scratch
-- Not an ATS for employers — this is candidate-side only
-- No mobile app — responsive web only for v1
+Sentry initialization exists for server, edge, client, and request errors. Event delivery requires DSN configuration. Release creation and source-map upload additionally depend on Sentry build credentials/configuration; they are not guaranteed by the repository alone.
 
-### 4. User Personas
+## Tests and CI
 
-#### Persona 1: Karthik (Job Seeker)
-- Final-year CS student, applying to 20-30 companies
-- Finds jobs on LinkedIn, company sites, referrals
-- Needs: track where he applied, who he talked to, what follow-ups are pending
-- Pain: loses track of applications in spreadsheets, forgets follow-ups
+### Local suites
 
-#### Persona 2: Sarah (Career Coach)
-- Manages 5-10 candidates at a time
-- Needs: visibility into each candidate's pipeline, ability to review and suggest
-- Pain: no centralized view, context switching between candidates
+- `npm test`: unit and boundary tests; integration specs are excluded.
+- `npm run test:integration`: six real PostgreSQL RBAC/tenant tests.
+- `npm run test:e2e:ci`: seed plus four Playwright critical-flow tests.
 
-### 5. Functional Requirements
+The database integration suite covers seeker ownership, coach visibility, guessed IDs, delegated ownership, cross-owner links, role escalation, and last-owner protection.
 
-#### 5.1 Authentication & Onboarding
-- **FR-1.1**: Users can register with email/password or Google OAuth
-- **FR-1.2**: First-time users get a default personal workspace created automatically
-- **FR-1.3**: Users can create additional workspaces and invite members
-- **FR-1.4**: Workspace owner can assign roles (OWNER/COACH/SEEKER) to members
+The browser suite covers:
 
-#### 5.2 Quick Capture
-- **FR-2.1**: User pastes a job URL or raw JD text into Quick Capture
-- **FR-2.2**: AI extracts: title, company, location, employment type, required skills, preferred skills, salary range, deadline
-- **FR-2.3**: Extracted data creates a JobOpportunity + Application (stage: CAPTURED)
-- **FR-2.4**: Original raw input is always preserved in `rawInput` field
+- Landing-page authentication links.
+- Protected-route callback redirects.
+- Seeded credentials login.
+- Opening an authorized workspace.
+- Sign-out and post-sign-out route protection.
+- Registration, workspace onboarding, candidate profile persistence, and dashboard visibility.
 
-#### 5.3 Application Pipeline
-- **FR-3.1**: Kanban board view with 10 columns (one per stage)
-- **FR-3.2**: Drag-and-drop to change application stage
-- **FR-3.3**: Every stage change creates a DecisionEvent with timestamp
-- **FR-3.4**: Application detail view shows: fit score, missing skills, interviews, tasks, contacts, outreach, decision history
-- **FR-3.5**: Stale application detection (no stage change in X days → notification)
+### GitHub Actions
 
-#### 5.4 AI Fit Scoring
-- **FR-4.1**: System compares JD required skills against CandidateProfile skills
-- **FR-4.2**: Outputs 0-100 fit score with breakdown: matching skills, missing skills, experience gap
-- **FR-4.3**: Score is explainable — user can see why each point was awarded/deducted
-- **FR-4.4**: Score stored in `fitScore` + `fitReasons` (JSON) on Application
+The CI workflow runs on pushes and pull requests targeting `main`:
 
-#### 5.5 Contact Management
-- **FR-5.1**: Add contacts manually with name, role, email, LinkedIn URL
-- **FR-5.2**: Link contacts to companies and/or applications
-- **FR-5.3**: AI drafts outreach messages (cold email, follow-up) based on context
-- **FR-5.4**: Track outreach message approval status and send date
-- **FR-5.5**: Contact timeline showing all interactions
+- `quality`: `npm ci`, Prisma generation, lint, typecheck, unit tests, production build.
+- `integration-e2e`: PostgreSQL 16, migrations, integration tests, Chromium, seed, Playwright.
 
-#### 5.6 Interview Management
-- **FR-6.1**: Schedule interviews with type, date/time, duration, interviewer name
-- **FR-6.2**: AI generates likely interview questions based on JD
-- **FR-6.3**: Track interview outcome (PENDING/PASSED/FAILED/NO_SHOW/CANCELLED)
-- **FR-6.4**: Create prep tasks linked to interviews
+The workflow uses read-only repository permissions, cancels superseded runs for the same ref, and uploads Playwright diagnostics.
 
-#### 5.7 Task Management
-- **FR-7.1**: Create tasks with title, description, due date, status
-- **FR-7.2**: Tasks can be linked to applications and/or interviews
-- **FR-7.3**: Task notifications for due dates approaching
-- **FR-7.4**: Task list view filtered by status, due date, workspace
+## Deployment and operations
 
-#### 5.8 Document Vault
-- **FR-8.1**: Upload documents (resume, cover letter, certificates, offer letters) to R2
-- **FR-8.2**: Resume versioning — each upload creates a new version
-- **FR-8.3**: Attach specific resume versions to applications
-- **FR-8.4**: AI suggests resume tailoring based on JD (bullet point rewrites)
-- **FR-8.5**: Documents are workspace-scoped and access-controlled
+Repository-provided deployment pieces:
 
-#### 5.9 RAG Assistant
-- **FR-9.1**: Documents are embedded and stored in pgvector
-- **FR-9.2**: Chat interface with streaming responses
-- **FR-9.3**: Answers are grounded in user's documents with citations
-- **FR-9.4**: Chat history is saved per workspace
-- **FR-9.5**: Assistant can answer: "What did the recruiter say last week?", "Which resume version did I send to Google?"
+- A production Next.js build and start script.
+- `vercel.json` daily cron configuration.
+- Sentry wrappers and instrumentation.
+- Environment templates for Neon/PostgreSQL, Auth.js, Gemini, Resend, R2, Sentry, cron, and Upstash.
 
-#### 5.10 Notifications
-- **FR-10.1**: In-app notification center
-- **FR-10.2**: Notification types: task due, deadline approaching, interview upcoming, application stale, system
-- **FR-10.3**: Background job (Inngest) checks for stale applications and upcoming deadlines
-- **FR-10.4**: Mark notifications as read
+Not guaranteed by repository code:
 
-### 6. Non-Functional Requirements
+- A linked Vercel project.
+- Automatic deploys on merge.
+- Provisioned Neon, R2, Upstash, Resend, Google OAuth, Gemini, or Sentry projects.
+- Production secrets, domain configuration, backup policy, or operational alerts.
 
-- **NFR-1 (Security)**: All data is workspace-scoped; no cross-tenant access. Postgres RLS as defense-in-depth.
-- **NFR-2 (Performance)**: Page load < 2s. AI operations show loading states; long-running jobs run async via Inngest.
-- **NFR-3 (Reliability)**: AI failures are graceful — user sees error, can retry. AiRun records all attempts.
-- **NFR-4 (Scalability)**: Serverless deployment (Vercel + Neon). Scale-to-zero for dev, autoscale for prod.
-- **NFR-5 (Observability)**: Sentry for error tracking. AuditEvent for all significant mutations. AiRun for AI cost/latency tracking.
-- **NFR-6 (Type Safety)**: End-to-end TypeScript: Zod schemas → tRPC procedures → React components. No any types.
-- **NFR-7 (Testing)**: Unit tests for business logic (Vitest). E2E for critical flows (Playwright). CI gates on every PR.
+## Known gaps and next engineering work
 
-### 7. Technical Constraints
-
-- **TC-1**: Must work on free tiers for all services (Vercel, Neon, R2, Inngest, Gemini)
-- **TC-2**: Must be deployable with a single `git push` (Vercel auto-deploy)
-- **TC-3**: Local dev must work with Docker Compose only (no cloud dependencies for dev)
-- **TC-4**: No proprietary APIs — all integrations must have open-source alternatives available
-
-### 8. Success Metrics
-
-- **SM-1**: Demo flow works end-to-end: register → capture job → AI extraction → fit score → apply → track → interview → offer
-- **SM-2**: All CI checks pass (lint + typecheck + build)
-- **SM-3**: E2E tests cover: auth, quick capture, pipeline stage change, AI fit scoring
-- **SM-4**: Project demonstrates: multi-tenancy, RBAC, AI integration, background jobs, file storage, vector search, real-time notifications
-
-### 9. Risks & Mitigations
-
-| Risk | Impact | Mitigation |
-|---|---|---|
-| Gemini API rate limits | AI features blocked | Implement retry + fallback to smaller model; cache results |
-| R2 upload failures | Documents lost | Retry with exponential backoff; show upload progress |
-| pgvector performance | Slow RAG queries | Index with IVFFlat; limit context window; pre-filter by workspace |
-| Inngest cold starts | Delayed notifications | Acceptable for v1; document SLA expectations |
-| Scope creep | Project incomplete | Strict 8-week timeline; cut features, not quality |
+1. Merge a single-step, content-validated document upload lifecycle with orphan cleanup.
+2. Mount and tenant-harden the notification UI; deliver record reminders to the related owner and exclude archived applications from stale alerts.
+3. Mount the theme toggle and finish dark-mode coverage across the dashboard.
+4. Correct or rename analytics `responseRate`, which currently duplicates `interviewRate`.
+5. Add browser coverage for invitations, drag-and-drop stage transitions, uploads, and notification behavior.
+6. Decide whether the assistant needs real RAG. If yes, add embeddings, tenant-filtered retrieval, citations, and saved conversation models.
+7. Move long-running AI and notification work to a durable queue if request latency or reliability requires it.
+8. Add PostgreSQL RLS only as defense in depth after defining/test-driving policies; do not treat it as a replacement for application scopes.
+9. Add production deployment runbooks, backup/restore verification, health checks, and alert ownership.
+10. Expand router tests beyond the currently covered tenant/RBAC and core application/workspace/interview/task behavior.
