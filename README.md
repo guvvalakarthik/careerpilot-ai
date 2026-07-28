@@ -15,7 +15,7 @@ This README describes what exists in the repository today. Planned features are 
 - Contact/outreach, interview, task, document/resume-version, and analytics interfaces.
 - Notification persistence, APIs, and cron generation. A bell component exists, but the current dashboard shell does not mount it.
 - A system-aware theme provider and partial dark styles. The current dashboard shell does not mount the theme toggle.
-- Cloudflare R2 upload/download helpers and PDF/text extraction.
+- A server-owned Cloudflare R2 upload lifecycle with content-signature validation, atomic metadata creation, cleanup on database failure, signed downloads, and PDF/text extraction.
 - A protected daily Vercel cron route for stale applications, upcoming interviews, and due tasks.
 - Sentry runtime instrumentation.
 - Upstash-backed production rate limits with deterministic in-memory limits in development and tests.
@@ -146,7 +146,6 @@ The following are not implemented, despite claims in older project documents:
 - No Inngest jobs or durable queue. Notification generation is a Vercel cron route; AI work runs in the request path.
 - Quick Capture preserves a URL but does not scrape or fetch the remote page. Paste the job description for reliable extraction.
 - PostgreSQL RLS is not enabled; tenant isolation is enforced in application queries and middleware.
-- The current `main` upload flow stores the R2 object and document metadata in separate requests; full content-signature validation and atomic orphan cleanup are not yet part of the merged implementation.
 - The notification bell and theme toggle are not mounted in the active dashboard shell, and dark styling is not complete across every screen.
 - Notification cron records are broadcast to all workspace members rather than only the related record owner; archived applications can also satisfy the current stale query.
 - Analytics currently reports `responseRate` and `interviewRate` from the same calculation.
