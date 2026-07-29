@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Rocket, Quote } from "lucide-react";
+import { Navigation, Quote } from "lucide-react";
 
 type AuthSidePanelProps = {
   quote: string;
@@ -17,29 +17,29 @@ export function AuthSidePanel({
   badge = "Free during beta",
 }: AuthSidePanelProps) {
   return (
-    <div className="relative hidden w-1/2 flex-col justify-between overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 p-12 lg:flex">
+    <div className="relative hidden w-1/2 flex-col justify-between overflow-hidden bg-[#004f4c] p-12 lg:flex">
       <div className="absolute inset-0 bg-grid-dark" />
-      <div className="absolute -left-40 -top-40 h-96 w-96 rounded-full bg-indigo-600/20 blur-3xl" />
-      <div className="absolute -bottom-40 -right-20 h-96 w-96 rounded-full bg-purple-600/10 blur-3xl" />
+      <div className="absolute -left-40 -top-40 h-96 w-96 rounded-full bg-teal-600/20 blur-3xl" />
+      <div className="absolute -bottom-40 -right-20 h-96 w-96 rounded-full bg-emerald-600/10 blur-3xl" />
 
       <div className="relative z-10">
         <Link href="/" className="flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 ring-1 ring-white/20">
-            <Rocket className="h-4 w-4 text-white" />
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-[#005454] ring-1 ring-white/20">
+            <Navigation className="h-4 w-4 text-[#005454]" />
           </div>
           <span className="text-lg font-bold tracking-tight text-white">
-            CareerPilot<span className="text-indigo-400"> AI</span>
+            CareerPilot<span className="text-teal-400"> AI</span>
           </span>
         </Link>
       </div>
 
       <div className="relative z-10 max-w-md">
-        <Quote className="h-8 w-8 text-indigo-400/60" />
+        <Quote className="h-8 w-8 text-teal-400/60" />
         <blockquote className="mt-4 text-xl font-medium leading-relaxed text-slate-200">
           {quote}
         </blockquote>
         <div className="mt-6 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-sm font-semibold text-white">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#087f79] text-sm font-semibold text-white">
             {initials}
           </div>
           <div>
@@ -55,7 +55,7 @@ export function AuthSidePanel({
           {badge}
         </div>
         <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300">
-          <div className="h-1.5 w-1.5 rounded-full bg-indigo-400" />
+          <div className="h-1.5 w-1.5 rounded-full bg-teal-400" />
           No credit card required
         </div>
       </div>
