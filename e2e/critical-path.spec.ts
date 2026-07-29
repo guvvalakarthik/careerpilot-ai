@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+﻿import { expect, test } from "@playwright/test";
 
 test.describe("critical authenticated flows", () => {
   test("seeded user can sign in, open a workspace, and sign out", async ({ page }) => {
@@ -15,6 +15,7 @@ test.describe("critical authenticated flows", () => {
     await expect(page.getByRole("heading", { name: "Demo Career Workspace" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Overview" })).toBeVisible();
 
+    await page.getByRole("button", { name: /Karthik/ }).click();
     await page.getByRole("button", { name: "Sign out" }).click();
     await page.waitForURL(/\/login$/);
     await page.goto("/dashboard");
