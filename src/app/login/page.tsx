@@ -4,7 +4,7 @@ import { useState, Suspense } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Rocket, ArrowRight, Sparkles } from "lucide-react";
+import { Navigation, ArrowRight, Sparkles } from "lucide-react";
 import { AuthSidePanel } from "@/components/auth-side-panel";
 
 function LoginForm() {
@@ -39,23 +39,24 @@ function LoginForm() {
   return (
     <div className="flex min-h-screen">
       <AuthSidePanel
-        quote="I went from 20 scattered browser tabs to a clean pipeline. Landed 3 interviews in my first week using it."
-        author="Sarah Chen"
-        authorRole="Frontend Engineer"
-        initials="SC"
+        quote="Find stronger opportunities, understand your fit, and keep every next move in one clear career workspace."
+        author="CareerPilot Intelligence"
+        authorRole="Built for focused job seekers"
+        initials="AI"
+        badge="Live opportunity intelligence"
       />
 
       {/* Right form panel */}
-      <div className="flex w-full items-center justify-center bg-white px-4 lg:w-1/2">
+      <div className="flex w-full items-center justify-center bg-[#fdfdfb] px-4 lg:w-1/2">
         <div className="w-full max-w-sm space-y-8">
           {/* Mobile logo */}
           <div className="lg:hidden">
             <Link href="/" className="flex items-center gap-2">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900">
-                <Rocket className="h-4 w-4 text-white" />
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#005454]">
+                <Navigation className="h-4 w-4 text-white" />
               </div>
               <span className="text-lg font-bold tracking-tight">
-                CareerPilot<span className="text-indigo-500"> AI</span>
+                CareerPilot<span className="text-teal-500"> AI</span>
               </span>
             </Link>
           </div>
@@ -82,7 +83,7 @@ function LoginForm() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm transition focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                className="mt-2 w-full rounded-lg border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm transition focus:border-teal-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                 placeholder="you@example.com"
               />
             </div>
@@ -91,7 +92,7 @@ function LoginForm() {
                 <label htmlFor="password" className="block text-sm font-medium text-slate-700">
                   Password
                 </label>
-                <Link href="/forgot-password" className="text-xs font-medium text-indigo-600 hover:text-indigo-700">
+                <Link href="/forgot-password" className="text-xs font-medium text-teal-600 hover:text-teal-700">
                   Forgot password?
                 </Link>
               </div>
@@ -102,13 +103,13 @@ function LoginForm() {
                 minLength={8}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm transition focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                className="mt-2 w-full rounded-lg border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm transition focus:border-teal-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                 placeholder="At least 8 characters"
               />
             </div>
 
             {error && (
-              <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">
+              <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
                 {error}
               </div>
             )}
@@ -116,7 +117,7 @@ function LoginForm() {
             <button
               type="submit"
               disabled={loading}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:shadow-md hover:from-indigo-700 hover:to-indigo-600 disabled:opacity-50"
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#087f79] px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#066e69] hover:shadow-md disabled:opacity-50"
             >
               {loading ? "Signing in..." : "Sign in"}
               {!loading && <ArrowRight className="h-4 w-4" />}
@@ -129,14 +130,14 @@ function LoginForm() {
               <span className="w-full border-t border-slate-200" />
             </div>
             <div className="relative flex justify-center text-xs">
-              <span className="bg-white px-3 text-slate-400">or</span>
+              <span className="bg-[#fdfdfb] px-3 text-slate-400">or</span>
             </div>
           </div>
 
           {/* Google button */}
           <button
             onClick={() => signIn("google", { callbackUrl })}
-            className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 hover:shadow-md"
+            className="flex w-full items-center justify-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 hover:shadow-md"
           >
             <svg className="h-5 w-5" viewBox="0 0 24 24">
               <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -148,8 +149,8 @@ function LoginForm() {
           </button>
 
           {/* Demo credentials */}
-          <div className="flex items-start gap-3 rounded-xl border border-slate-100 bg-slate-50/80 px-4 py-3">
-            <Sparkles className="mt-0.5 h-4 w-4 flex-shrink-0 text-indigo-500" />
+          <div className="flex items-start gap-3 rounded-lg border border-slate-100 bg-[#f4f8f7] px-4 py-3">
+            <Sparkles className="mt-0.5 h-4 w-4 flex-shrink-0 text-teal-500" />
             <div>
               <p className="text-xs font-medium text-slate-700">Demo account</p>
               <p className="mt-0.5 text-xs text-slate-500">
@@ -161,7 +162,7 @@ function LoginForm() {
           {/* Sign up link */}
           <p className="text-center text-sm text-slate-500">
             No account?{" "}
-            <Link href="/register" className="font-semibold text-indigo-600 hover:text-indigo-700">
+            <Link href="/register" className="font-semibold text-teal-600 hover:text-teal-700">
               Create one free
             </Link>
           </p>
