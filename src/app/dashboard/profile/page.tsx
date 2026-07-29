@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { User, Plus, X, Save, Briefcase, MapPin, DollarSign, Clock } from "lucide-react";
 import { api } from "@/trpc/react";
-import { AppSidebar } from "@/components/app-sidebar";
 
 export default function ProfilePage() {
   const { data: profile, isLoading } = api.candidate.get.useQuery();
@@ -11,7 +10,6 @@ export default function ProfilePage() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-slate-50">
-        <AppSidebar />
         <div className="ml-60 w-[calc(100%-15rem)] px-8 py-10">
           <p className="text-sm text-slate-400">Loading profile...</p>
         </div>
@@ -102,8 +100,6 @@ function ProfileForm({
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <AppSidebar />
-
       <main className="ml-60 w-[calc(100%-15rem)] px-8 py-10">
         <div className="mx-auto max-w-3xl">
         <div className="flex items-center gap-3">
