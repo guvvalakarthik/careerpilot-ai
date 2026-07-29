@@ -7,8 +7,8 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { CreateWorkspaceModal } from "./create-workspace-modal";
 
 const roleBadge: Record<string, { icon: typeof Crown; className: string; label: string }> = {
-  OWNER: { icon: Crown, className: "bg-violet-50 text-violet-700", label: "Owner" },
-  COACH: { icon: Shield, className: "bg-blue-50 text-blue-700", label: "Coach" },
+  OWNER: { icon: Crown, className: "bg-[#e4f3f1] text-[#087f79]", label: "Owner" },
+  COACH: { icon: Shield, className: "bg-[#eef5f4] text-[#005454]", label: "Coach" },
   SEEKER: { icon: GraduationCap, className: "bg-slate-100 text-slate-600", label: "Seeker" },
 };
 
@@ -23,12 +23,12 @@ export default async function DashboardPage() {
   });
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-[#f7faf8]">
       <AppSidebar />
 
-      <main className="ml-60 w-[calc(100%-15rem)] px-8 py-10">
-        <div className="mx-auto max-w-5xl">
-          <div className="flex items-center justify-between">
+      <main className="w-full px-4 pb-8 pt-24 sm:px-6 md:ml-[13.25rem] md:w-[calc(100%-13.25rem)] md:px-8 md:py-10">
+        <div className="mx-auto max-w-6xl">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-slate-900">
               Workspaces
@@ -66,11 +66,11 @@ export default async function DashboardPage() {
                   <Link
                     key={m.id}
                     href={`/dashboard/${m.workspace.id}`}
-                    className="group rounded-xl border border-slate-200 bg-white p-5 transition hover:border-slate-300 hover:shadow-md"
+                    className="group rounded-xl border border-[#dce4e2] bg-white p-5 transition hover:border-[#9cc9c5] hover:shadow-[0_16px_40px_rgba(0,79,76,0.10)]"
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-900">
+                        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#005454]">
                           <Briefcase className="h-5 w-5 text-white" />
                         </div>
                         <div>
@@ -99,7 +99,7 @@ export default async function DashboardPage() {
               })}
 
               {/* Create new card */}
-              <div className="flex min-h-[120px] items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white/50">
+              <div className="flex min-h-[120px] items-center justify-center rounded-xl border border-dashed border-[#b8d8d4] bg-[#f3f9f7]">
                 <CreateWorkspaceModal />
               </div>
             </div>
