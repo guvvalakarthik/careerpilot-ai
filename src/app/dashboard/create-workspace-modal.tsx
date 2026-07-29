@@ -35,7 +35,7 @@ export function CreateWorkspaceModal() {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
+        className="flex items-center gap-2 rounded-lg bg-[#087f79] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#066e69]"
       >
         <Plus className="h-4 w-4" />
         New Workspace
@@ -75,7 +75,7 @@ export function CreateWorkspaceModal() {
                   placeholder="e.g. My Job Search"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="mt-1.5 w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm transition focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
+                  className="mt-1.5 w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm transition focus:border-[#087f79] focus:outline-none focus:ring-1 focus:ring-[#087f79]"
                 />
                 <p className="mt-1 text-xs text-slate-400">
                   You&apos;ll be the owner of this workspace.
@@ -97,7 +97,7 @@ export function CreateWorkspaceModal() {
                 <button
                   type="submit"
                   disabled={createMutation.isPending}
-                  className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50"
+                  className="rounded-lg bg-[#087f79] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#066e69] disabled:opacity-50"
                 >
                   {createMutation.isPending ? "Creating..." : "Create"}
                 </button>
