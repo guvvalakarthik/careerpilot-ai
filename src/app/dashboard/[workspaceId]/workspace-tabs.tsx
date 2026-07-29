@@ -158,11 +158,22 @@ export function WorkspaceTabs({ workspaceId, workspaceName, workspaceSlug, role,
     <aside className={`${styles.sidebar} ${mobile ? styles.sidebarOpen : ""}`}>
       <div className={styles.brand}><span><NavigationArrowIcon weight="fill" /></span><strong>CareerPilot AI</strong><button onClick={() => setMobile(false)} aria-label="Close navigation"><XIcon /></button></div>
       <nav>{nav.map((item) => { const Icon = item.icon; return <button key={item.id} onClick={() => selectTab(item.id)} className={tab === item.id ? styles.navActive : ""} aria-current={tab === item.id ? "page" : undefined}><Icon weight={tab === item.id ? "fill" : "regular"}/>{item.label}</button>; })}</nav>
-      <div className={styles.sideBottom}><section><StarIcon weight="fill" /><div><strong>Upgrade to Pro</strong><p>Unlock advanced research and autopilot.</p></div><CaretRightIcon /></section><Link href="/dashboard"><span>{workspaceName.slice(0,1).toUpperCase()}</span><div><h2>{workspaceName}</h2><small>{workspaceSlug}</small></div><CaretRightIcon /></Link></div>
+      <div className={styles.sideBottom}>
+        <section><StarIcon weight="fill" /><div><strong>Upgrade to Pro</strong><p>Unlock advanced research and autopilot.</p></div><CaretRightIcon /></section>
+        <Link href="/dashboard"><span>{workspaceName.slice(0,1).toUpperCase()}</span><div><h2>{workspaceName}</h2><small>{workspaceSlug}</small></div><CaretRightIcon /></Link>
+        <div className={styles.sideProfile}>
+          <button onClick={() => setProfile((v) => !v)} aria-expanded={profile}>
+            <span className={styles.sideUserAvatar}>{(userName || userEmail || "U").slice(0, 1).toUpperCase()}</span>
+            <span><strong>{userName || userEmail || "User"}</strong><small>{userEmail}</small></span>
+            <CaretDownIcon />
+          </button>
+          {profile ? <div className={`${styles.popover} ${styles.sidePopover}`}><header><strong>{userName || "User"}</strong><span>{userEmail}</span></header><Link href="/dashboard/profile"><UserCircleIcon />Profile</Link><button onClick={() => selectTab("assistant")}><SparkleIcon />AI Assistant</button><button onClick={() => selectTab("members")}><UsersThreeIcon />Members</button><button onClick={() => selectTab("settings")}><GearIcon />Settings</button><form action={signOutAction}><button><SignOutIcon />Sign out</button></form></div> : null}
+        </div>
+      </div>
     </aside>
     {mobile ? <button className={styles.backdrop} onClick={() => setMobile(false)} aria-label="Close navigation" /> : null}
     <div className={styles.main}>
-      <header className={styles.topbar}><button className={styles.menu} onClick={() => setMobile(true)} aria-label="Open navigation"><NavigationArrowIcon /></button><div className={styles.title}><h1>{title}</h1><p>{subtitle}</p></div><label className={styles.search}><MagnifyingGlassIcon /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search roles, companies, or skills" aria-label="Search workspace"/><kbd>/</kbd></label><button className={styles.bell} aria-label="Notifications"><BellIcon /><span>3</span></button><div className={styles.profile}><button onClick={() => setProfile((v) => !v)} aria-expanded={profile}><span className={styles.userAvatar} aria-hidden="true"><UserCircleIcon weight="fill" /></span><span>{userName || "Karthik"}</span><CaretDownIcon /></button>{profile ? <div className={styles.popover}><header><strong>{userName || "Karthik"}</strong><span>{userEmail}</span></header><Link href="/dashboard/profile"><UserCircleIcon />Profile</Link><button onClick={() => selectTab("assistant")}><SparkleIcon />AI Assistant</button><button onClick={() => selectTab("members")}><UsersThreeIcon />Members</button><button onClick={() => selectTab("settings")}><GearIcon />Settings</button><form action={signOutAction}><button><SignOutIcon />Sign out</button></form></div> : null}</div></header>
+      <header className={styles.topbar}><button className={styles.menu} onClick={() => setMobile(true)} aria-label="Open navigation"><NavigationArrowIcon /></button><div className={styles.title}><h1>{title}</h1><p>{subtitle}</p></div><label className={styles.search}><MagnifyingGlassIcon /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search roles, companies, or skills" aria-label="Search workspace"/><kbd>/</kbd></label><button className={styles.bell} aria-label="Notifications"><BellIcon /><span>3</span></button></header>
       <main className={styles.content}>
         {tab === "opportunities" ? <OpportunityIntelligence query={query} /> : null}
         {tab === "overview" ? <Overview stats={stats} /> : null}
