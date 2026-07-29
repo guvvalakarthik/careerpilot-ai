@@ -1,40 +1,38 @@
-# Design QA — Workspace list
+# Design QA — Home page
 
-- Source visual truth: `C:\Users\wexa_\AppData\Local\Temp\codex-clipboard-PrUNbP.png` (the supplied legacy workspace capture) plus the active Opportunity Intelligence sidebar and surface tokens.
-- Implementation screenshot: `C:\tmp\careerpilot-workspaces-qa.png`.
-- Comparison image: `C:\tmp\careerpilot-workspaces-comparison.jpg`.
+- Source visual truth: `C:\Users\wexa_\AppData\Local\Temp\codex-clipboard-4yDNwR.png` (the supplied legacy home-page capture) plus the active Opportunity Intelligence palette and component language.
+- Implementation screenshot: `C:\tmp\careerpilot-home-qa.png`.
+- Comparison image: `C:\tmp\careerpilot-home-comparison.jpg`.
 - Viewport: 1536 × 864 CSS pixels, device scale factor 1.
-- Pixel normalization: source and implementation were normalized to 768 × 432 for full-view inspection; source browser chrome was excluded from page-proportion judgments.
-- State: authenticated seeded owner with one workspace. Additional responsive capture: `C:\tmp\careerpilot-workspaces-mobile-qa.png` at 390 × 844.
+- Pixel normalization: source and implementation were both normalized to 768 × 432 for full-view inspection; browser chrome in the source was excluded from layout judgments.
+- State: logged out, desktop light theme. Additional responsive capture: `C:\tmp\careerpilot-home-mobile-qa.png` at 390 × 844.
 
 ## Findings
 
 No actionable P0, P1, or P2 findings remain.
 
-- Typography: workspace hierarchy, role badge, metadata, sidebar labels, and user identity retain clear optical weight and truncation behavior.
-- Spacing and layout: desktop sidebar width, main content offset, card grid, and create actions remain aligned; mobile stacks actions and cards without overflow.
-- Colors and tokens: the white/indigo shell was replaced with the active deep-teal sidebar, warm canvas, teal actions, pale-teal role states, and softer borders.
-- Image and icon fidelity: no photos are used; existing icon-library marks are crisp and consistently sized.
-- Copy: workspace labels and actions remain unchanged; seeded data differs from the supplied capture by design.
+- Typography: Geist hierarchy, display weight, wrapping, and small-label contrast are consistent with the product UI.
+- Spacing and layout: navigation, centered hero, CTA grouping, and the next-section reveal preserve the supplied composition while using the current product density.
+- Colors and tokens: legacy indigo/purple accents were replaced with deep teal, teal, warm white, and pale teal surfaces.
+- Image and icon fidelity: no photos or raster assets are used; existing library icons remain sharp at both tested densities.
+- Copy: hero language now reflects opportunity intelligence and career decision support while preserving the original conversion path.
 
 ## Full-view comparison evidence
 
-The normalized side-by-side comparison confirms the same information architecture and large-region proportions. The intentional difference is the adoption of the active teal workspace shell and wider content container.
+The normalized side-by-side comparison confirms the same above-the-fold hierarchy and CTA placement. The intentional differences are the teal product tokens, flat logo treatment, and updated career-intelligence copy.
 
 ## Focused region evidence
 
-The desktop sidebar/card region and the complete mobile top-navigation/card stack were inspected. Role chips, card borders, CTA states, and persistent navigation remain visible.
+The hero and navigation were inspected at full desktop resolution, and the mobile hero was inspected separately. No clipping, overflow, illegible text, or collapsed controls were found.
 
 ## Comparison history
 
-- Iteration 1 finding: [P1] hiding the desktop sidebar at small widths removed access to workspace/profile navigation.
-- Fix: converted the sidebar into a compact fixed mobile top bar with icon navigation while preserving the desktop sidebar.
-- Post-fix evidence: `C:\tmp\careerpilot-workspaces-mobile-qa.png` shows the brand, Workspaces, and Profile controls at 390 × 844 with no overlap or overflow.
+- First valid browser-rendered comparison: passed with no P0/P1/P2 visual findings.
+- Runtime preparation issues were resolved before the valid design comparison and are not counted as a QA iteration.
 
 ## Primary interactions and browser checks
 
-- Seeded user authenticated successfully.
-- “New Workspace” opened the creation modal and Cancel closed it.
+- Header “Get started” CTA navigated to `/register`.
 - Desktop and mobile captures completed in installed Chrome.
 - Browser console and page-error collection returned no errors.
 
