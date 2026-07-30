@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { seedRecruiterDemo } from "./demo-data";
 
 const db = new PrismaClient();
 
@@ -8,7 +9,7 @@ async function main() {
 
   const demoUser = await db.user.upsert({
     where: { email: "demo@careerpilot.dev" },
-    update: {},
+    update: { name: "Demo User", passwordHash },
     create: {
       name: "Demo User",
       email: "demo@careerpilot.dev",
@@ -18,7 +19,7 @@ async function main() {
 
   const workspace = await db.workspace.upsert({
     where: { slug: "demo-workspace" },
-    update: {},
+    update: { name: "Demo Career Workspace" },
     create: {
       name: "Demo Career Workspace",
       slug: "demo-workspace",
@@ -28,30 +29,60 @@ async function main() {
     },
   });
 
+  await db.membership.upsert({
+    where: {
+      workspaceId_userId: {
+        workspaceId: workspace.id,
+        userId: demoUser.id,
+      },
+    },
+    update: { role: "OWNER" },
+    create: {
+      workspaceId: workspace.id,
+      userId: demoUser.id,
+      role: "OWNER",
+    },
+  });
+
   await db.candidateProfile.upsert({
     where: { userId: demoUser.id },
-    update: {},
+    update: {
+      headline: "Product & Data Analyst",
+      summary: "Product-minded analyst building reliable decisions with SQL, experimentation, dashboards, and stakeholder context.",
+      skills: ["SQL", "Python", "TypeScript", "Product Analytics", "Experimentation", "PostgreSQL"],
+      yearsExperience: 2.2,
+      locations: ["Bengaluru", "Remote"],
+      desiredRoles: ["Product Analyst", "Data Analyst", "Business Analyst"],
+      minSalary: 1_400_000,
+    },
     create: {
       userId: demoUser.id,
-      headline: "Full-Stack Developer",
-      summary: "Full-stack developer with Node.js, React and PostgreSQL experience.",
-      skills: ["TypeScript", "React", "Node.js", "PostgreSQL", "Prisma"],
-      yearsExperience: 1,
+      headline: "Product & Data Analyst",
+      summary: "Product-minded analyst building reliable decisions with SQL, experimentation, dashboards, and stakeholder context.",
+      skills: ["SQL", "Python", "TypeScript", "Product Analytics", "Experimentation", "PostgreSQL"],
+      yearsExperience: 2.2,
       locations: ["Bengaluru", "Remote"],
-      desiredRoles: ["Backend Engineer", "Full-Stack Engineer"],
+      desiredRoles: ["Product Analyst", "Data Analyst", "Business Analyst"],
+      minSalary: 1_400_000,
     },
+  });
+
+  const demo = await seedRecruiterDemo(db, {
+    userId: demoUser.id,
+    workspaceId: workspace.id,
   });
 
   console.log("Seed complete:", {
     user: demoUser.email,
     workspace: workspace.name,
     login: "demo@careerpilot.dev / demo1234",
+    demo,
   });
 }
 
 main()
-  .catch((e) => {
-    console.error(e);
+  .catch((error) => {
+    console.error(error);
     process.exit(1);
   })
   .finally(() => db.$disconnect());

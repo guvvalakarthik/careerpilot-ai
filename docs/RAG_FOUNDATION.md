@@ -1,6 +1,6 @@
 # RAG vector foundation
 
-CareerPilot stores retrieval embeddings alongside application data in PostgreSQL through pgvector. This foundation is intentionally feature-gated: it defines safe storage and embedding boundaries, but does not index production data or alter Assistant Chat yet.
+CareerPilot stores retrieval embeddings alongside application data in PostgreSQL through pgvector. The feature-gated pipeline now includes durable source indexing, deletion, retries, failure states, and workspace backfill. Assistant Chat retrieval and citations remain separate rollout work.
 
 ## Data model
 
@@ -35,7 +35,9 @@ The repository requires a workspace scope on every query. Seekers additionally f
 
 `RAG_ENABLED=false` is the default. The pgvector migration has been applied only to local Docker and isolated CI during this branch. It must not be applied to the configured Neon production database without the separate migration approval described in [Database migration safety](DATABASE_MIGRATIONS.md).
 
-The next implementation layer is durable Inngest indexing with idempotent source replacement, retries, deletion handling, and backfill. Assistant retrieval and citations come afterward.
+When enabled, source mutations publish identifier-only events to Inngest with a bounded wait. Jobs reload the source under workspace/owner scope, retry four times, serialize per source, skip unchanged content hashes, replace chunks atomically, and persist READY or FAILED status. A role-gated workspace backfill reconciles missed events and prunes deleted sources.
+
+Assistant retrieval, validated citations, and saved chat history come afterward.
 
 References:
 

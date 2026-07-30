@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { createTRPCRouter, workspaceProcedure } from "@/server/api/trpc";
-import { ownerScope } from "@/server/api/ownership";
+import { canManageAllRecords, ownerScope } from "@/server/api/ownership";
+import { nearestRankPercentile, percentage } from "@/server/analytics-metrics";
 
 const STAGE_ORDER = [
   "CAPTURED",
@@ -49,6 +50,14 @@ export const analyticsRouter = createTRPCRouter({
         },
       });
 
+      const responded = await ctx.db.application.count({
+        where: {
+          workspaceId: ctx.workspaceId,
+          ...ownerScope(ctx.membership.role, ctx.userId),
+          stage: { in: ["INTERVIEWING", "OFFER", "ACCEPTED", "REJECTED"] },
+        },
+      });
+
       const interviewing = await ctx.db.application.count({
         where: {
           workspaceId: ctx.workspaceId,
@@ -71,10 +80,10 @@ export const analyticsRouter = createTRPCRouter({
 
       return {
         total,
-        responseRate: applied > 0 ? Math.round((interviewing / applied) * 100) : 0,
-        interviewRate: applied > 0 ? Math.round((interviewing / applied) * 100) : 0,
-        offerRate: applied > 0 ? Math.round((offers / applied) * 100) : 0,
-        acceptanceRate: offers > 0 ? Math.round((accepted / offers) * 100) : 0,
+        responseRate: percentage(responded, applied),
+        interviewRate: percentage(interviewing, applied),
+        offerRate: percentage(offers, applied),
+        acceptanceRate: percentage(accepted, offers),
         applied,
         interviewing,
         offers,
@@ -120,6 +129,63 @@ export const analyticsRouter = createTRPCRouter({
       }));
     }),
 
+  operational: workspaceProcedure
+    .input(z.object({ workspaceId: z.string() }))
+    .query(async ({ ctx }) => {
+      const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1_000);
+      const elevated = canManageAllRecords(ctx.membership.role);
+      const [members, applications, aiRuns, knowledgeSources] = await Promise.all([
+        ctx.db.membership.count({ where: { workspaceId: ctx.workspaceId } }),
+        ctx.db.application.count({
+          where: {
+            workspaceId: ctx.workspaceId,
+            ...ownerScope(ctx.membership.role, ctx.userId),
+          },
+        }),
+        ctx.db.aiRun.findMany({
+          where: {
+            workspaceId: ctx.workspaceId,
+            createdAt: { gte: since },
+            ...(elevated ? {} : { userId: ctx.userId }),
+          },
+          select: { status: true, latencyMs: true },
+          orderBy: { createdAt: "desc" },
+          take: 500,
+        }),
+        ctx.db.knowledgeSource.findMany({
+          where: {
+            workspaceId: ctx.workspaceId,
+            ...(elevated ? {} : { ownerId: ctx.userId }),
+          },
+          select: { indexStatus: true },
+        }),
+      ]);
+
+      const completedAiRuns = aiRuns.filter((run) =>
+        ["SUCCEEDED", "FAILED"].includes(run.status),
+      );
+      const succeededAiRuns = completedAiRuns.filter(
+        (run) => run.status === "SUCCEEDED",
+      ).length;
+      const latencies = aiRuns.flatMap((run) =>
+        run.latencyMs === null ? [] : [run.latencyMs],
+      );
+
+      return {
+        windowDays: 30,
+        members,
+        applications,
+        aiRuns: aiRuns.length,
+        aiSuccessRate: percentage(succeededAiRuns, completedAiRuns.length),
+        aiP95LatencyMs: nearestRankPercentile(latencies, 95),
+        indexedSources: knowledgeSources.filter(
+          (source) => source.indexStatus === "READY",
+        ).length,
+        failedSources: knowledgeSources.filter(
+          (source) => source.indexStatus === "FAILED",
+        ).length,
+      };
+    }),
   velocity: workspaceProcedure
     .input(z.object({ workspaceId: z.string() }))
     .query(async ({ ctx }) => {

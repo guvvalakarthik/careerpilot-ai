@@ -8,6 +8,7 @@ import {
 } from "@/server/api/trpc";
 import { recordAudit } from "@/server/api/audit";
 import { ownedApplicationScope, ownerScope } from "@/server/api/ownership";
+import { requestRagWorkspaceBackfill } from "@/inngest/events";
 
 function slugify(name: string): string {
   return (
@@ -222,6 +223,25 @@ export const workspaceRouter = createTRPCRouter({
       });
 
       return membership;
+    }),
+
+  requestRagBackfill: requireRole(["OWNER", "COACH"])
+    .input(z.object({ workspaceId: z.string() }))
+    .mutation(async ({ ctx }) => {
+      const result = await requestRagWorkspaceBackfill({
+        workspaceId: ctx.workspaceId,
+        requestedBy: ctx.userId,
+      });
+      await recordAudit({
+        db: ctx.db,
+        workspaceId: ctx.workspaceId,
+        userId: ctx.userId,
+        action: "rag.workspace_backfill_requested",
+        entityType: "Workspace",
+        entityId: ctx.workspaceId,
+        metadata: result,
+      });
+      return result;
     }),
 
   stats: workspaceProcedure

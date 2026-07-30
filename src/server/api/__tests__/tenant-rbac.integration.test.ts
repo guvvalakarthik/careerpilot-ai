@@ -148,4 +148,33 @@ describe("tenant RBAC integration", () => {
       caller(ownerId).workspace.removeMember({ workspaceId, memberUserId: ownerId }),
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
+  it("rejects workspace access before any tenant query executes", async () => {
+    await expect(
+      caller(outsiderId).application.list({ workspaceId }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(
+      caller(coachId).application.list({ workspaceId: otherWorkspaceId }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  it("prevents seekers from mutating peer-owned records", async () => {
+    await expect(
+      caller(seekerAId).application.update({
+        workspaceId,
+        applicationId: seekerBApplicationId,
+        fitScore: 99,
+      }),
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+
+  it("rejects delegated ownership outside the current workspace", async () => {
+    await expect(
+      caller(coachId).opportunity.quickCapture({
+        workspaceId,
+        ownerId: outsiderId,
+        rawInput: "Cross-tenant capture",
+        title: "Must not be created",
+      }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  });
 });

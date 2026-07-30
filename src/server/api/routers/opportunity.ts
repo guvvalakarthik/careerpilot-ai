@@ -4,6 +4,7 @@ import { createTRPCRouter, workspaceProcedure, requireRole, requireRateLimitedRo
 import { recordAudit } from "@/server/api/audit";
 import { extractJobData, isAIConfigured } from "@/server/ai";
 import { ownedApplicationScope, resolveRecordOwner } from "@/server/api/ownership";
+import { requestRagSourceDeletion, requestRagSourceIndex } from "@/inngest/events";
 
 export const opportunityRouter = createTRPCRouter({
   list: workspaceProcedure
@@ -170,6 +171,11 @@ export const opportunityRouter = createTRPCRouter({
         },
       });
 
+      await requestRagSourceIndex({
+        workspaceId: ctx.workspaceId,
+        type: "JOB_OPPORTUNITY",
+        sourceId: opportunity.id,
+      });
       return { opportunity, application, extracted };
     }),
 
@@ -197,7 +203,7 @@ export const opportunityRouter = createTRPCRouter({
         if (!company) throw new TRPCError({ code: "BAD_REQUEST", message: "Company must belong to this workspace" });
       }
       const { opportunityId, ...data } = input;
-      return ctx.db.jobOpportunity.update({
+      const updated = await ctx.db.jobOpportunity.update({
         where: { id: opportunityId },
         data: {
           ...(data.title !== undefined ? { title: data.title } : {}),
@@ -211,13 +217,31 @@ export const opportunityRouter = createTRPCRouter({
           ...(data.preferredSkills !== undefined ? { preferredSkills: data.preferredSkills } : {}),
         },
       });
+      await requestRagSourceIndex({
+        workspaceId: ctx.workspaceId,
+        type: "JOB_OPPORTUNITY",
+        sourceId: opportunityId,
+      });
+      return updated;
     }),
 
   delete: requireRole(["OWNER", "COACH"])
     .input(z.object({ workspaceId: z.string(), opportunityId: z.string() }))
     .mutation(async ({ ctx, input }) => {
+      await ctx.db.knowledgeSource.deleteMany({
+        where: {
+          workspaceId: ctx.workspaceId,
+          type: "JOB_OPPORTUNITY",
+          sourceId: input.opportunityId,
+        },
+      });
       const deleted = await ctx.db.jobOpportunity.deleteMany({ where: { id: input.opportunityId, workspaceId: ctx.workspaceId } });
       if (deleted.count === 0) throw new TRPCError({ code: "NOT_FOUND", message: "Opportunity not found" });
+      await requestRagSourceDeletion({
+        workspaceId: ctx.workspaceId,
+        type: "JOB_OPPORTUNITY",
+        sourceId: input.opportunityId,
+      });
 
       await recordAudit({
         db: ctx.db,

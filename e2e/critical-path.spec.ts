@@ -3,9 +3,7 @@
 test.describe("critical authenticated flows", () => {
   test("seeded user can sign in, open a workspace, and sign out", async ({ page }) => {
     await page.goto("/login");
-    await page.getByLabel("Email").fill("demo@careerpilot.dev");
-    await page.getByLabel("Password").fill("demo1234");
-    await page.getByRole("button", { name: "Sign in" }).click();
+    await page.getByRole("button", { name: "Open recruiter demo" }).click();
 
     await page.waitForURL(/\/dashboard$/);
     await expect(page.getByRole("heading", { name: "Workspaces" })).toBeVisible();
