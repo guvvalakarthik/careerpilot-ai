@@ -121,6 +121,8 @@ export function createMockDb(overrides: Partial<MockDb> = {}): MockDb {
     task: {
       findMany: vi.fn().mockResolvedValue([]),
       findFirst: vi.fn().mockResolvedValue(null),
+      findUnique: vi.fn().mockResolvedValue(null),
+      upsert: vi.fn().mockResolvedValue({ id: "task-1" }),
       create: vi.fn().mockResolvedValue({ id: "task-1" }),
       update: vi.fn().mockResolvedValue({ id: "task-1" }),
       delete: vi.fn().mockResolvedValue({ id: "task-1" }),

@@ -8,8 +8,8 @@ import { QuickCaptureModal } from "./quick-capture-modal";
 import { ApplicationDetailDrawer } from "./application-detail-drawer";
 import { EmptyState } from "@/components/empty-state";
 
-export function PipelineTab({ workspaceId }: { workspaceId: string }) {
-  const [selectedAppId, setSelectedAppId] = useState<string | null>(null);
+export function PipelineTab({ workspaceId, initialApplicationId = null }: { workspaceId: string; initialApplicationId?: string | null }) {
+  const [selectedAppId, setSelectedAppId] = useState<string | null>(initialApplicationId);
   const [search, setSearch] = useState("");
   const [companyFilter, setCompanyFilter] = useState("");
   const [viewMode, setViewMode] = useState<"board" | "list">("board");

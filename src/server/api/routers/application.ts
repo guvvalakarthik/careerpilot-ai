@@ -156,6 +156,97 @@ export const applicationRouter = createTRPCRouter({
       return updatedApp;
     }),
 
+  setSaved: requireRole(["OWNER", "COACH", "SEEKER"])
+    .input(
+      z.object({
+        workspaceId: z.string(),
+        applicationId: z.string(),
+        saved: z.boolean(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const existing = await ctx.db.application.findFirst({
+        where: {
+          id: input.applicationId,
+          workspaceId: ctx.workspaceId,
+          ...ownerScope(ctx.membership.role, ctx.userId),
+        },
+        select: { id: true },
+      });
+      if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Application not found" });
+
+      const application = await ctx.db.application.update({
+        where: { id: input.applicationId },
+        data: { isSaved: input.saved },
+      });
+
+      await recordAudit({
+        db: ctx.db,
+        workspaceId: ctx.workspaceId,
+        userId: ctx.userId,
+        action: input.saved ? "application.saved" : "application.unsaved",
+        entityType: "Application",
+        entityId: input.applicationId,
+      });
+
+      return application;
+    }),
+
+  startTailoring: requireRole(["OWNER", "COACH", "SEEKER"])
+    .input(
+      z.object({
+        workspaceId: z.string(),
+        applicationId: z.string(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const existing = await ctx.db.application.findFirst({
+        where: {
+          id: input.applicationId,
+          workspaceId: ctx.workspaceId,
+          ...ownerScope(ctx.membership.role, ctx.userId),
+        },
+        include: { opportunity: { select: { title: true } } },
+      });
+      if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Application not found" });
+
+      const now = new Date();
+      const application = await ctx.db.application.update({
+        where: { id: input.applicationId },
+        data: { tailoringStartedAt: existing.tailoringStartedAt ?? now },
+      });
+
+      const taskId = `tailoring-${existing.id}`;
+      const taskTitle = `Tailor application for ${existing.opportunity.title ?? "this role"}`;
+      const existingTask = await ctx.db.task.findUnique({ where: { id: taskId } });
+      const task = await ctx.db.task.upsert({
+        where: { id: taskId },
+        update: {},
+        create: {
+          id: taskId,
+          workspaceId: ctx.workspaceId,
+          ownerId: existing.ownerId,
+          applicationId: existing.id,
+          title: taskTitle,
+          description: "Review the job requirements, tailor the resume, and prepare the application package.",
+          status: "OPEN",
+          dueAt: new Date(now.getTime() + 3 * 24 * 60 * 60 * 1_000),
+        },
+      });
+      const createdTask = !existingTask;
+
+      await recordAudit({
+        db: ctx.db,
+        workspaceId: ctx.workspaceId,
+        userId: ctx.userId,
+        action: "application.tailoring_started",
+        entityType: "Application",
+        entityId: input.applicationId,
+        metadata: { taskId: task.id, createdTask },
+      });
+
+      return { application, task, createdTask };
+    }),
   update: requireRole(["OWNER", "COACH", "SEEKER"])
     .input(
       z.object({

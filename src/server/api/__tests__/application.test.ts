@@ -51,4 +51,50 @@ describe("application router", () => {
     expect(result.id).toBe("app-1");
     expect(result.opportunity.title).toBe("Eng");
   });
+
+  it("persists saved state for an owned application", async () => {
+    mockDb.application.findFirst.mockResolvedValue({ id: "app-1" });
+    mockDb.application.update.mockResolvedValue({ id: "app-1", isSaved: true });
+
+    const result = await (applicationRouter.setSaved as any).mutate({
+      ctx,
+      input: { workspaceId: "ws-1", applicationId: "app-1", saved: true },
+    });
+
+    expect(mockDb.application.update).toHaveBeenCalledWith({
+      where: { id: "app-1" },
+      data: { isSaved: true },
+    });
+    expect(result.isSaved).toBe(true);
+  });
+
+  it("starts tailoring idempotently and creates one actionable task", async () => {
+    mockDb.application.findFirst.mockResolvedValue({
+      id: "app-1",
+      ownerId: "user-1",
+      tailoringStartedAt: null,
+      opportunity: { title: "Product Analyst" },
+    });
+    mockDb.application.update.mockResolvedValue({ id: "app-1", tailoringStartedAt: new Date() });
+    mockDb.task.findUnique.mockResolvedValue(null);
+    mockDb.task.upsert.mockResolvedValue({ id: "tailoring-app-1", title: "Tailor application for Product Analyst" });
+
+    const result = await (applicationRouter.startTailoring as any).mutate({
+      ctx,
+      input: { workspaceId: "ws-1", applicationId: "app-1" },
+    });
+
+    expect(mockDb.task.upsert).toHaveBeenCalledOnce();
+    expect(result.createdTask).toBe(true);
+    expect(result.task.id).toBe("tailoring-app-1");
+
+    mockDb.task.findUnique.mockResolvedValue(result.task);
+    const repeated = await (applicationRouter.startTailoring as any).mutate({
+      ctx,
+      input: { workspaceId: "ws-1", applicationId: "app-1" },
+    });
+
+    expect(mockDb.task.upsert).toHaveBeenCalledTimes(2);
+    expect(repeated.createdTask).toBe(false);
+  });
 });
