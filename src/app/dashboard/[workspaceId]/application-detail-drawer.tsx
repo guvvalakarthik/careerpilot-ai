@@ -248,6 +248,9 @@ export function ApplicationDetailDrawer({
   return (
     <div
       className="fixed inset-0 z-50 flex justify-end bg-black/40"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Application details"
       onClick={onClose}
     >
       <div
@@ -272,6 +275,7 @@ export function ApplicationDetailDrawer({
               </div>
               <button
                 onClick={onClose}
+                aria-label="Close application details"
                 className="text-slate-400 transition hover:text-slate-600"
               >
                 <X className="h-5 w-5" />

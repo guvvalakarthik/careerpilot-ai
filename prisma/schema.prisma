@@ -265,19 +265,21 @@ model JobOpportunity {
 }
 
 model Application {
-  id            String           @id @default(cuid())
-  workspaceId   String
-  ownerId       String
-  opportunityId String           @unique
-  stage         ApplicationStage @default(CAPTURED)
-  fitScore      Int? // 0-100
-  fitReasons    Json? // explainable scoring breakdown
-  missingSkills String[]
-  appliedAt     DateTime?
-  outcomeNotes  String?
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
-  lastStageAt   DateTime         @default(now()) // for staleness detection
+  id                 String           @id @default(cuid())
+  workspaceId        String
+  ownerId            String
+  opportunityId      String           @unique
+  stage              ApplicationStage @default(CAPTURED)
+  isSaved            Boolean          @default(false)
+  fitScore           Int? // 0-100
+  fitReasons         Json? // explainable scoring breakdown
+  missingSkills      String[]
+  appliedAt          DateTime?
+  tailoringStartedAt DateTime?
+  outcomeNotes       String?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  lastStageAt        DateTime         @default(now()) // for staleness detection
 
   workspace   Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   owner       User              @relation("ApplicationOwner", fields: [ownerId], references: [id], onDelete: Restrict)
@@ -289,6 +291,7 @@ model Application {
   resumeLinks ResumeVersion[]
 
   @@index([workspaceId, stage])
+  @@index([workspaceId, isSaved])
   @@index([workspaceId, ownerId])
 }
 

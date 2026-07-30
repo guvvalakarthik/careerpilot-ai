@@ -113,6 +113,18 @@ export async function seedRecruiterDemo(
   const now = new Date();
   const applicationIds = new Map<string, string>();
 
+  // Keep repeated local/CI seeds deterministic, including cleanup of tasks
+  // created by earlier versions of the tailoring flow.
+  await db.task.deleteMany({
+    where: {
+      workspaceId: input.workspaceId,
+      OR: [
+        { id: { startsWith: "tailoring-demo-application-" } },
+        { title: { startsWith: "Tailor application for" } },
+      ],
+    },
+  });
+
   for (const role of demoRoles) {
     const companyId = `demo-company-${role.key}`;
     const opportunityId = `demo-opportunity-${role.key}`;
@@ -168,6 +180,8 @@ export async function seedRecruiterDemo(
       where: { id: applicationId },
       update: {
         stage: role.stage,
+        isSaved: role.key === 'atlassian-product-analyst',
+        tailoringStartedAt: null,
         fitScore: role.fitScore,
         missingSkills: role.missingSkills,
         lastStageAt: daysFrom(now, -Math.min(role.capturedDaysAgo, 4)),
@@ -181,6 +195,8 @@ export async function seedRecruiterDemo(
         ownerId: input.userId,
         opportunityId,
         stage: role.stage,
+        isSaved: role.key === 'atlassian-product-analyst',
+        tailoringStartedAt: null,
         fitScore: role.fitScore,
         fitReasons: {
           summary: `${role.fitScore}% explainable fit based on the seeded candidate profile.`,

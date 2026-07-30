@@ -20,7 +20,13 @@ export const opportunityRouter = createTRPCRouter({
           workspaceId: ctx.workspaceId,
           ...ownedApplicationScope(ctx.membership.role, ctx.userId),
           ...(input.search
-            ? { title: { contains: input.search, mode: "insensitive" } }
+            ? {
+                OR: [
+                  { title: { contains: input.search, mode: "insensitive" } },
+                  { location: { contains: input.search, mode: "insensitive" } },
+                  { company: { name: { contains: input.search, mode: "insensitive" } } },
+                ],
+              }
             : {}),
         },
         include: {
