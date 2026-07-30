@@ -4,6 +4,10 @@ import { vi } from "vitest";
 vi.mock("@/server/db", () => ({ db: {} }));
 vi.mock("@/server/auth", () => ({ auth: vi.fn() }));
 vi.mock("@/server/api/audit", () => ({ recordAudit: vi.fn().mockResolvedValue(undefined) }));
+vi.mock("@/server/r2", () => ({
+  isR2Configured: vi.fn(() => false),
+  deleteFromR2: vi.fn().mockResolvedValue(undefined),
+}));
 
 vi.mock("@/server/api/trpc", () => {
   function createChainableProcedure(middleware: (ctx: any) => any = (ctx) => ctx) {
@@ -65,6 +69,7 @@ type MockDb = Record<string, any>;
 
 export function createMockDb(overrides: Partial<MockDb> = {}): MockDb {
   const base = {
+    $transaction: vi.fn(async (operations: Promise<unknown>[]) => Promise.all(operations)),
     workspace: {
       findMany: vi.fn().mockResolvedValue([]),
       findUnique: vi.fn().mockResolvedValue(null),

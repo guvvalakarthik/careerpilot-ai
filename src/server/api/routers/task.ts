@@ -24,7 +24,7 @@ export const taskRouter = createTRPCRouter({
           ...(input.applicationId ? { applicationId: input.applicationId } : {}),
           ...(input.status ? { status: input.status } : {}),
           ...(input.upcoming
-            ? { dueAt: { gte: new Date() }, status: { in: ["OPEN", "IN_PROGRESS"] } }
+            ? { dueAt: { not: null }, status: { in: ["OPEN", "IN_PROGRESS"] } }
             : {}),
         },
         include: {
@@ -112,11 +112,19 @@ export const taskRouter = createTRPCRouter({
       });
     }),
 
-  delete: requireRole(["OWNER", "COACH"])
+  delete: requireRole(["OWNER", "COACH", "SEEKER"])
     .input(z.object({ workspaceId: z.string(), taskId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      const deleted = await ctx.db.task.deleteMany({ where: { id: input.taskId, workspaceId: ctx.workspaceId } });
-      if (deleted.count === 0) throw new TRPCError({ code: "NOT_FOUND", message: "Task not found" });
+      const task = await ctx.db.task.findFirst({
+        where: {
+          id: input.taskId,
+          workspaceId: ctx.workspaceId,
+          ...ownerScope(ctx.membership.role, ctx.userId),
+        },
+        select: { id: true },
+      });
+      if (!task) throw new TRPCError({ code: "NOT_FOUND", message: "Task not found" });
+      await ctx.db.task.delete({ where: { id: task.id } });
 
       await recordAudit({
         db: ctx.db,

@@ -145,11 +145,19 @@ export const contactRouter = createTRPCRouter({
       });
     }),
 
-  delete: requireRole(["OWNER", "COACH"])
+  delete: requireRole(["OWNER", "COACH", "SEEKER"])
     .input(z.object({ workspaceId: z.string(), contactId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      const deleted = await ctx.db.contact.deleteMany({ where: { id: input.contactId, workspaceId: ctx.workspaceId } });
-      if (deleted.count === 0) throw new TRPCError({ code: "NOT_FOUND", message: "Contact not found" });
+      const contact = await ctx.db.contact.findFirst({
+        where: {
+          id: input.contactId,
+          workspaceId: ctx.workspaceId,
+          ...ownerScope(ctx.membership.role, ctx.userId),
+        },
+        select: { id: true },
+      });
+      if (!contact) throw new TRPCError({ code: "NOT_FOUND", message: "Contact not found" });
+      await ctx.db.contact.delete({ where: { id: contact.id } });
 
       await recordAudit({
         db: ctx.db,

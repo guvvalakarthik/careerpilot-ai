@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import crypto from "crypto";
 import { db } from "@/server/db";
-import { sendEmail, passwordResetEmailHtml } from "@/server/email";
+import { isEmailConfigured, sendEmail, passwordResetEmailHtml } from "@/server/email";
 import { limitHttpRequest } from "@/server/rate-limit";
 
 const forgotSchema = z.object({
@@ -42,7 +42,11 @@ export async function POST(req: Request) {
   const baseUrl = process.env.AUTH_URL ?? "http://localhost:3000";
   const resetUrl = `${baseUrl}/reset-password?token=${token}`;
 
-  // Send email (fire-and-forget)
+  if (!isEmailConfigured() && process.env.NODE_ENV !== "production") {
+    return NextResponse.json({ ok: true, devResetUrl: resetUrl });
+  }
+
+  // Delivery remains enumeration-safe: the response never reports provider status.
   sendEmail({
     to: user.email,
     subject: "Reset your CareerPilot AI password",

@@ -221,20 +221,9 @@ export function ApplicationDetailDrawer({
     });
   }
 
-  const validTransitions: Record<string, string[]> = {
-    CAPTURED: ["RESEARCHING", "READY_TO_APPLY", "REJECTED", "WITHDRAWN", "ARCHIVED"],
-    RESEARCHING: ["READY_TO_APPLY", "REJECTED", "WITHDRAWN", "ARCHIVED"],
-    READY_TO_APPLY: ["APPLIED", "REJECTED", "WITHDRAWN", "ARCHIVED"],
-    APPLIED: ["INTERVIEWING", "REJECTED", "WITHDRAWN", "ARCHIVED"],
-    INTERVIEWING: ["OFFER", "REJECTED", "WITHDRAWN", "ARCHIVED"],
-    OFFER: ["ACCEPTED", "REJECTED", "WITHDRAWN", "ARCHIVED"],
-    ACCEPTED: ["ARCHIVED"],
-    REJECTED: ["ARCHIVED"],
-    WITHDRAWN: ["ARCHIVED"],
-    ARCHIVED: [],
-  };
-
-  const availableTransitions = app ? validTransitions[app.stage] ?? [] : [];
+  const availableTransitions = app
+    ? Object.keys(stageLabels).filter((stage) => stage !== app.stage)
+    : [];
 
   function handleStageChange(toStage: string) {
     changeStageMutation.mutate({
@@ -461,6 +450,9 @@ export function ApplicationDetailDrawer({
                   onChange={(e) => setNote(e.target.value)}
                   className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-1.5 text-xs transition focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
                 />
+                {changeStageMutation.error && (
+                  <p className="mt-2 text-xs text-red-600">{changeStageMutation.error.message}</p>
+                )}
                 <div className="mt-2 flex flex-wrap gap-2">
                   {availableTransitions.map((stage) => (
                     <button

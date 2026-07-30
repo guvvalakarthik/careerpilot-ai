@@ -149,11 +149,19 @@ export const interviewRouter = createTRPCRouter({
       });
     }),
 
-  delete: requireRole(["OWNER", "COACH"])
+  delete: requireRole(["OWNER", "COACH", "SEEKER"])
     .input(z.object({ workspaceId: z.string(), interviewId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      const deleted = await ctx.db.interview.deleteMany({ where: { id: input.interviewId, workspaceId: ctx.workspaceId } });
-      if (deleted.count === 0) throw new TRPCError({ code: "NOT_FOUND", message: "Interview not found" });
+      const interview = await ctx.db.interview.findFirst({
+        where: {
+          id: input.interviewId,
+          workspaceId: ctx.workspaceId,
+          ...ownedApplicationScope(ctx.membership.role, ctx.userId),
+        },
+        select: { id: true },
+      });
+      if (!interview) throw new TRPCError({ code: "NOT_FOUND", message: "Interview not found" });
+      await ctx.db.interview.delete({ where: { id: interview.id } });
 
       await recordAudit({
         db: ctx.db,

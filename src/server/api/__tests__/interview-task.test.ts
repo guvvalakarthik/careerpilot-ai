@@ -27,6 +27,26 @@ describe("interview router", () => {
     expect(result[0].type).toBe("TECHNICAL");
   });
 
+  it("lets a seeker delete an interview on their own application", async () => {
+    ctx = createMockCtx(mockDb, "SEEKER");
+    mockDb.interview.findFirst.mockResolvedValue({ id: "iv-1" });
+
+    await (interviewRouter.delete as any).mutate({
+      ctx,
+      input: { workspaceId: "ws-1", interviewId: "iv-1" },
+    });
+
+    expect(mockDb.interview.findFirst).toHaveBeenCalledWith({
+      where: expect.objectContaining({
+        id: "iv-1",
+        workspaceId: "ws-1",
+        application: { ownerId: "user-1" },
+      }),
+      select: { id: true },
+    });
+    expect(mockDb.interview.delete).toHaveBeenCalledWith({ where: { id: "iv-1" } });
+  });
+
   it("create throws NOT_FOUND when application doesn't exist", async () => {
     mockDb.application.findFirst.mockResolvedValue(null);
 
@@ -97,6 +117,38 @@ describe("task router", () => {
 
     expect(result).toHaveLength(1);
     expect(result[0].title).toBe("Follow up");
+  });
+
+  it("includes overdue tasks when upcoming work is requested", async () => {
+    await (taskRouter.list as any).query({
+      ctx,
+      input: { workspaceId: "ws-1", upcoming: true },
+    });
+
+    expect(mockDb.task.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          dueAt: { not: null },
+          status: { in: ["OPEN", "IN_PROGRESS"] },
+        }),
+      }),
+    );
+  });
+
+  it("lets a seeker delete their own task", async () => {
+    ctx = createMockCtx(mockDb, "SEEKER");
+    mockDb.task.findFirst.mockResolvedValue({ id: "task-1" });
+
+    await (taskRouter.delete as any).mutate({
+      ctx,
+      input: { workspaceId: "ws-1", taskId: "task-1" },
+    });
+
+    expect(mockDb.task.findFirst).toHaveBeenCalledWith({
+      where: expect.objectContaining({ id: "task-1", workspaceId: "ws-1", ownerId: "user-1" }),
+      select: { id: true },
+    });
+    expect(mockDb.task.delete).toHaveBeenCalledWith({ where: { id: "task-1" } });
   });
 
   it("create succeeds without applicationId", async () => {

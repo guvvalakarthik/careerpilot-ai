@@ -21,19 +21,6 @@ const stageEnum = z.enum([
   "ARCHIVED",
 ]);
 
-const validTransitions: Record<string, string[]> = {
-  CAPTURED: ["RESEARCHING", "READY_TO_APPLY", "REJECTED", "WITHDRAWN", "ARCHIVED"],
-  RESEARCHING: ["READY_TO_APPLY", "REJECTED", "WITHDRAWN", "ARCHIVED"],
-  READY_TO_APPLY: ["APPLIED", "REJECTED", "WITHDRAWN", "ARCHIVED"],
-  APPLIED: ["INTERVIEWING", "REJECTED", "WITHDRAWN", "ARCHIVED"],
-  INTERVIEWING: ["OFFER", "REJECTED", "WITHDRAWN", "ARCHIVED"],
-  OFFER: ["ACCEPTED", "REJECTED", "WITHDRAWN", "ARCHIVED"],
-  ACCEPTED: ["ARCHIVED"],
-  REJECTED: ["ARCHIVED"],
-  WITHDRAWN: ["ARCHIVED"],
-  ARCHIVED: [],
-};
-
 export const applicationRouter = createTRPCRouter({
   list: workspaceProcedure
     .input(
@@ -113,12 +100,8 @@ export const applicationRouter = createTRPCRouter({
       });
       if (!app) throw new TRPCError({ code: "NOT_FOUND", message: "Application not found" });
 
-      const allowed = validTransitions[app.stage] ?? [];
-      if (!allowed.includes(input.toStage)) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: `Cannot transition from ${app.stage} to ${input.toStage}`,
-        });
+      if (app.stage === input.toStage) {
+        return app;
       }
 
       const [updatedApp] = await ctx.db.$transaction([

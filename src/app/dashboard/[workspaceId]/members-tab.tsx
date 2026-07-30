@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { UserPlus, Trash2, Shield, Crown, GraduationCap } from "lucide-react";
 import { api } from "@/trpc/react";
+import { useRouter } from "next/navigation";
 
 type Member = {
   id: string;
@@ -35,7 +36,9 @@ export function MembersTab({
   const [inviteRole, setInviteRole] = useState<"SEEKER" | "COACH" | "OWNER">("SEEKER");
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
+  const [memberError, setMemberError] = useState<string | null>(null);
   const utils = api.useUtils();
+  const router = useRouter();
 
   const canManage = role === "OWNER";
   const canInvite = role === "OWNER" || role === "COACH";
@@ -44,6 +47,7 @@ export function MembersTab({
     onSuccess: () => {
       utils.workspace.members.invalidate({ workspaceId });
       utils.workspace.stats.invalidate({ workspaceId });
+      router.refresh();
       setInviteEmail("");
       setInviteError(null);
       setInviteSuccess("Member invited successfully!");
@@ -57,14 +61,20 @@ export function MembersTab({
 
   const changeRoleMutation = api.workspace.changeRole.useMutation({
     onSuccess: () => {
+      setMemberError(null);
       utils.workspace.members.invalidate({ workspaceId });
+      router.refresh();
     },
+    onError: (err) => setMemberError(err.message),
   });
 
   const removeMutation = api.workspace.removeMember.useMutation({
     onSuccess: () => {
+      setMemberError(null);
       utils.workspace.members.invalidate({ workspaceId });
+      router.refresh();
     },
+    onError: (err) => setMemberError(err.message),
   });
 
   function handleInvite(e: React.FormEvent) {
@@ -130,6 +140,9 @@ export function MembersTab({
       )}
 
       <div>
+        {memberError && (
+          <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{memberError}</div>
+        )}
         <h3 className="mb-3 font-semibold text-slate-900">
           Members ({members.length})
         </h3>
@@ -188,12 +201,14 @@ export function MembersTab({
 
                   {canManage && !isCurrentUser && (
                     <button
-                      onClick={() =>
-                        removeMutation.mutate({
-                          workspaceId,
-                          memberUserId: m.user.id,
-                        })
-                      }
+                      onClick={() => {
+                        if (confirm(`Remove ${m.user.name ?? m.user.email} from this workspace?`)) {
+                          removeMutation.mutate({
+                            workspaceId,
+                            memberUserId: m.user.id,
+                          });
+                        }
+                      }}
                       disabled={removeMutation.isPending}
                       className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
                       title="Remove member"

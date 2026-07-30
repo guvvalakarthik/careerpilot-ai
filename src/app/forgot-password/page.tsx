@@ -9,6 +9,7 @@ export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
+  const [devResetUrl, setDevResetUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -24,6 +25,8 @@ export default function ForgotPasswordPage() {
 
     setLoading(false);
     if (res.ok) {
+      const data = (await res.json()) as { devResetUrl?: string };
+      setDevResetUrl(data.devResetUrl ?? null);
       setSent(true);
     } else {
       setError("Something went wrong. Please try again.");
@@ -70,9 +73,17 @@ export default function ForgotPasswordPage() {
               <p className="mt-1 text-xs text-emerald-600">
                 If an account exists for {email}, you&apos;ll receive a password reset link shortly.
               </p>
+              {devResetUrl && (
+                <Link
+                  href={devResetUrl}
+                  className="mt-4 inline-flex rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-800"
+                >
+                  Open local reset link
+                </Link>
+              )}
               <Link
                 href="/login"
-                className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-indigo-600 hover:text-indigo-700"
+                className="mt-4 flex items-center justify-center gap-1.5 text-sm font-medium text-indigo-600 hover:text-indigo-700"
               >
                 <ArrowLeft className="h-3.5 w-3.5" />
                 Back to sign in

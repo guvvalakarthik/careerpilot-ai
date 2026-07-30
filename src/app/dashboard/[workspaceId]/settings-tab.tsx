@@ -14,10 +14,12 @@ type Member = {
 
 export function SettingsTab({
   workspaceId,
+  workspaceName,
   role,
   members,
 }: {
   workspaceId: string;
+  workspaceName: string;
   role: string;
   members: Member[];
 }) {
@@ -25,6 +27,10 @@ export function SettingsTab({
   const [name, setName] = useState("");
   const [nameError, setNameError] = useState<string | null>(null);
   const [nameSuccess, setNameSuccess] = useState(false);
+  const [transferUserId, setTransferUserId] = useState("");
+  const [transferError, setTransferError] = useState<string | null>(null);
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const utils = api.useUtils();
 
   const isOwner = role === "OWNER";
@@ -44,10 +50,44 @@ export function SettingsTab({
     },
   });
 
+  const transferMutation = api.workspace.transferOwnership.useMutation({
+    onSuccess: async () => {
+      setTransferError(null);
+      setTransferUserId("");
+      await utils.workspace.list.invalidate();
+      await utils.workspace.members.invalidate({ workspaceId });
+      router.refresh();
+    },
+    onError: (err) => setTransferError(err.message),
+  });
+
+  const deleteMutation = api.workspace.delete.useMutation({
+    onSuccess: async () => {
+      await utils.workspace.list.invalidate();
+      router.replace("/dashboard");
+      router.refresh();
+    },
+    onError: (err) => setDeleteError(err.message),
+  });
+
   function handleRename(e: React.FormEvent) {
     e.preventDefault();
     if (name.trim().length < 2) return;
     updateMutation.mutate({ workspaceId, name: name.trim() });
+  }
+
+  function handleTransfer() {
+    if (!transferUserId) return;
+    if (!confirm("Transfer ownership to this member? You will become a Coach.")) return;
+    setTransferError(null);
+    transferMutation.mutate({ workspaceId, memberUserId: transferUserId });
+  }
+
+  function handleDelete() {
+    if (deleteConfirmation !== workspaceName) return;
+    if (!confirm("Permanently delete this workspace and all of its data?")) return;
+    setDeleteError(null);
+    deleteMutation.mutate({ workspaceId, confirmationName: deleteConfirmation });
   }
 
   return (
@@ -91,58 +131,70 @@ export function SettingsTab({
               <AlertTriangle className="h-4 w-4" />
               Danger Zone
             </h3>
-            <div className="mt-4 flex items-center justify-between rounded-lg bg-red-50 px-4 py-3">
-              <div>
-                <p className="text-sm font-medium text-red-700">
-                  Transfer Ownership
-                </p>
-                <p className="text-xs text-red-500">
-                  Transfer this workspace to another owner. You will become a Coach.
-                </p>
+            <div className="mt-4 rounded-lg bg-red-50 px-4 py-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm font-medium text-red-700">Transfer Ownership</p>
+                  <p className="text-xs text-red-500">
+                    The selected member becomes Owner and you become a Coach.
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <select
+                    aria-label="New workspace owner"
+                    className="rounded-lg border border-red-300 px-3 py-1.5 text-xs focus:outline-none"
+                    value={transferUserId}
+                    onChange={(e) => setTransferUserId(e.target.value)}
+                  >
+                    <option value="">Select member...</option>
+                    {members
+                      .filter((member) => member.role !== "OWNER")
+                      .map((member) => (
+                        <option key={member.user.id} value={member.user.id}>
+                          {member.user.name ?? member.user.email}
+                        </option>
+                      ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={handleTransfer}
+                    disabled={!transferUserId || transferMutation.isPending}
+                    className="rounded-lg border border-red-300 px-3 py-1.5 text-xs font-medium text-red-700 disabled:opacity-50"
+                  >
+                    {transferMutation.isPending ? "Transferring..." : "Transfer"}
+                  </button>
+                </div>
               </div>
-              <select
-                className="rounded-lg border border-red-300 px-3 py-1.5 text-xs focus:outline-none"
-                onChange={(e) => {
-                  if (e.target.value && confirm("Transfer ownership to this member?")) {
-                    utils.client.workspace.changeRole.mutate({
-                      workspaceId,
-                      memberUserId: e.target.value,
-                      role: "OWNER",
-                    });
-                    router.refresh();
-                  }
-                }}
-                defaultValue=""
-              >
-                <option value="" disabled>
-                  Select member...
-                </option>
-                {members
-                  .filter((m) => m.role !== "OWNER")
-                  .map((m) => (
-                    <option key={m.user.id} value={m.user.id}>
-                      {m.user.name ?? m.user.email}
-                    </option>
-                  ))}
-              </select>
+              {transferError && <p className="mt-2 text-xs text-red-600">{transferError}</p>}
             </div>
 
-            <div className="mt-3 flex items-center justify-between rounded-lg bg-red-50 px-4 py-3">
-              <div>
-                <p className="text-sm font-medium text-red-700">
-                  Delete Workspace
-                </p>
-                <p className="text-xs text-red-500">
-                  Permanently delete this workspace and all its data.
-                </p>
+            <div className="mt-3 rounded-lg bg-red-50 px-4 py-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <p className="text-sm font-medium text-red-700">Delete Workspace</p>
+                  <p className="text-xs text-red-500">
+                    Permanently deletes applications, contacts, tasks, documents, and memberships.
+                  </p>
+                  <label className="mt-2 block text-xs font-medium text-red-700" htmlFor="delete-workspace-confirmation">
+                    Type <strong>{workspaceName}</strong> to confirm
+                  </label>
+                  <input
+                    id="delete-workspace-confirmation"
+                    value={deleteConfirmation}
+                    onChange={(event) => setDeleteConfirmation(event.target.value)}
+                    className="mt-1 w-full rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs focus:outline-none sm:w-72"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  disabled={deleteConfirmation !== workspaceName || deleteMutation.isPending}
+                  className="rounded-lg border border-red-300 px-4 py-1.5 text-xs font-medium text-red-700 disabled:opacity-50"
+                >
+                  {deleteMutation.isPending ? "Deleting..." : "Delete permanently"}
+                </button>
               </div>
-              <button
-                disabled
-                className="rounded-lg border border-red-300 px-4 py-1.5 text-xs font-medium text-red-600 opacity-50"
-                title="Coming soon"
-              >
-                Delete
-              </button>
+              {deleteError && <p className="mt-2 text-xs text-red-600">{deleteError}</p>}
             </div>
           </div>
         </>
