@@ -1,5 +1,3 @@
-import { redirect } from "next/navigation";
-import { auth } from "@/server/auth";
 import Link from "next/link";
 import {
   Navigation,
@@ -20,10 +18,7 @@ import {
   Quote,
 } from "lucide-react";
 
-export default async function Home() {
-  const session = await auth();
-  if (session?.user) redirect("/dashboard");
-
+export default function Home() {
   return (
     <div className="min-h-screen bg-white">
       {/* Nav */}

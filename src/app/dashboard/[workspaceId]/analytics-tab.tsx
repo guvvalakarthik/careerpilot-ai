@@ -4,7 +4,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   AreaChart, Area, Legend,
 } from "recharts";
-import { TrendingUp, Target, Award, Clock, BarChart3 } from "lucide-react";
+import { TrendingUp, Target, Award, Clock, BarChart3, Activity, Database } from "lucide-react";
 import { api } from "@/trpc/react";
 
 function StatCard({ icon: Icon, label, value, color }: { icon: typeof Target; label: string; value: string | number; color: string }) {
@@ -28,6 +28,7 @@ export function AnalyticsTab({ workspaceId }: { workspaceId: string }) {
   const { data: rates, isLoading: ratesLoading } = api.analytics.rates.useQuery({ workspaceId });
   const { data: stageTime, isLoading: stageLoading } = api.analytics.avgTimePerStage.useQuery({ workspaceId });
   const { data: velocity, isLoading: velocityLoading } = api.analytics.velocity.useQuery({ workspaceId });
+  const { data: operational } = api.analytics.operational.useQuery({ workspaceId });
 
   if (funnelLoading || ratesLoading) {
     return <div className="flex h-32 items-center justify-center text-sm text-slate-400">Loading analytics...</div>;
@@ -43,6 +44,33 @@ export function AnalyticsTab({ workspaceId }: { workspaceId: string }) {
           <StatCard icon={Award} label="Offer rate" value={rates.offerRate + "%"} color="bg-green-50 text-green-600" />
           <StatCard icon={BarChart3} label="Total apps" value={rates.total} color="bg-slate-100 text-slate-600" />
         </div>
+      )}
+
+      {operational && (
+        <section className="rounded-xl border border-slate-200 bg-white p-4" aria-labelledby="operational-metrics-heading">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h3 id="operational-metrics-heading" className="text-sm font-semibold text-slate-700">
+                Production evidence
+              </h3>
+              <p className="mt-1 text-xs text-slate-500">
+                Tenant-scoped measurements from the last {operational.windowDays} days.
+              </p>
+            </div>
+            <Activity className="h-5 w-5 text-teal-600" aria-hidden="true" />
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <StatCard icon={BarChart3} label="Tracked applications" value={operational.applications} color="bg-slate-100 text-slate-600" />
+            <StatCard icon={Activity} label="AI success" value={operational.aiRuns ? `${operational.aiSuccessRate}%` : "No runs"} color="bg-emerald-50 text-emerald-700" />
+            <StatCard icon={Clock} label="AI p95 latency" value={operational.aiP95LatencyMs === null ? "No runs" : `${operational.aiP95LatencyMs} ms`} color="bg-amber-50 text-amber-700" />
+            <StatCard icon={Database} label="Indexed sources" value={operational.indexedSources} color="bg-cyan-50 text-cyan-700" />
+          </div>
+          {operational.failedSources > 0 && (
+            <p className="mt-3 text-xs font-medium text-amber-700">
+              {operational.failedSources} source{operational.failedSources === 1 ? "" : "s"} need re-indexing.
+            </p>
+          )}
+        </section>
       )}
 
       {/* Funnel chart */}

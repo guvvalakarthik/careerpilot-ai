@@ -4,6 +4,7 @@ import { createTRPCRouter, workspaceProcedure, requireRole } from "@/server/api/
 import { recordAudit } from "@/server/api/audit";
 import { getDownloadUrl, deleteFromR2, isR2Configured } from "@/server/r2";
 import { ownerScope } from "@/server/api/ownership";
+import { requestRagSourceDeletion } from "@/inngest/events";
 
 const documentTypeEnum = z.enum([
   "RESUME",
@@ -56,7 +57,19 @@ export const documentRouter = createTRPCRouter({
       });
       if (!doc) throw new TRPCError({ code: "NOT_FOUND", message: "Document not found" });
 
+      await ctx.db.knowledgeSource.deleteMany({
+        where: {
+          workspaceId: ctx.workspaceId,
+          type: "DOCUMENT",
+          sourceId: doc.id,
+        },
+      });
       await ctx.db.document.delete({ where: { id: doc.id } });
+      await requestRagSourceDeletion({
+        workspaceId: ctx.workspaceId,
+        type: "DOCUMENT",
+        sourceId: doc.id,
+      });
       if (isR2Configured()) {
         await deleteFromR2(doc.storageKey).catch((error) => {
           console.error("R2 document cleanup failed", error instanceof Error ? error.message : "Unknown error");

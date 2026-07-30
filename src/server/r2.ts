@@ -95,8 +95,21 @@ export async function fetchFileTextFromR2(
     return text;
   }
 
-  // For text-based files, read as UTF-8
-  return buffer.toString("utf-8");
+  if (
+    mimeType ===
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+    storageKey.endsWith(".docx")
+  ) {
+    const mammoth = await import("mammoth");
+    const result = await mammoth.extractRawText({ buffer });
+    return result.value;
+  }
+
+  if (mimeType.startsWith("text/") || storageKey.endsWith(".txt")) {
+    return buffer.toString("utf-8");
+  }
+
+  throw new Error(`Text extraction is not supported for ${mimeType}.`);
 }
 
 export function isR2Configured(): boolean {

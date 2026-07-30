@@ -4,6 +4,7 @@ import { db } from "@/server/db";
 import { recordAudit } from "@/server/api/audit";
 import { deleteFromR2, uploadToR2 } from "@/server/r2";
 import { resolveRecordOwner } from "@/server/api/ownership";
+import { requestRagSourceIndex } from "@/inngest/events";
 
 export const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
 
@@ -152,6 +153,11 @@ export async function createUploadedDocument(input: {
       entityId: result.document.id,
       metadata: { fileName: validated.fileName, type: input.type },
     }).catch(() => undefined);
+    await requestRagSourceIndex({
+      workspaceId: input.workspaceId,
+      type: "DOCUMENT",
+      sourceId: result.document.id,
+    });
     return result;
   } catch (error) {
     await deleteFromR2(storageKey).catch(() => undefined);

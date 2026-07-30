@@ -39,7 +39,7 @@ Status meanings:
 | Contacts and outreach | Implemented | Owner-scoped contact CRUD and application-linked messages |
 | Interviews and tasks | Implemented | Scheduling, outcomes, due dates, and upcoming view |
 | Document vault | Configured integration | R2 object storage, metadata, signed downloads, resume versions |
-| Analytics | Implemented | Funnel, rates, time-per-stage, and six-month velocity charts |
+| Analytics | Implemented | Funnel, distinct response/interview/offer rates, time-per-stage, velocity, AI p95/success, and RAG readiness |
 | Notifications | Partial | Persistence, routers, cron, and bell component exist; bell is not mounted in current dashboard shell |
 | Notification scheduler | Configured integration | Daily Vercel cron protected by `CRON_SECRET` |
 | Dark mode | Partial | Theme provider and toggle component exist; toggle is not mounted and styles are incomplete |
@@ -47,8 +47,8 @@ Status meanings:
 | Production abuse limits | Configured integration | Upstash required in production; memory limiter in development/test |
 | Unit/integration/E2E tests | Implemented | Vitest, PostgreSQL integration config, Playwright critical flows |
 | GitHub Actions CI | Implemented | Quality and PostgreSQL/Playwright jobs |
-| pgvector RAG/citations | Foundation implemented | `vector(768)`, HNSW, chunking, normalized embeddings, and scoped repository exist; no indexing job or citations yet |
-| Inngest/background queue | Not implemented | No Inngest client, functions, or durable AI job queue |
+| pgvector RAG/citations | Indexing implemented | `vector(768)`, HNSW, scoped retrieval, Inngest indexing/deletion/backfill, retries, content idempotency, and failure states; Assistant citations remain pending |
+| Inngest/background queue | Implemented for RAG | Identifier-only events, bounded publication, per-source concurrency, four retries, failure state, deletion, and workspace backfill |
 | Saved assistant history | Not implemented | Chat state is client-side for the current session |
 | PWA/native mobile app | Not implemented | Responsive web application only |
 
@@ -215,7 +215,7 @@ The route creates notifications for:
 - Pending interviews occurring in 24 to 48 hours.
 - Open/in-progress tasks due within 24 hours.
 
-The route fails closed if `CRON_SECRET` is missing and uses a constant-time bearer-secret comparison. It writes notifications directly during the request; no queue or Inngest worker is involved.
+The route fails closed if `CRON_SECRET` is missing and uses a constant-time bearer-secret comparison. It writes notifications directly during the request; the Inngest worker is currently reserved for RAG indexing.
 
 Current limitations: the cron sends each generated reminder to every workspace member instead of the related record owner, and the stale-application terminal filter omits `ARCHIVED`. The `NotificationBell` component is not mounted by the active `AppSidebar` dashboard layout.
 
@@ -291,6 +291,8 @@ Repository-provided deployment pieces:
 - Sentry wrappers and instrumentation.
 - Environment templates for Neon/PostgreSQL, Auth.js, Gemini, Resend, R2, Sentry, cron, and Upstash.
 - Loopback-only local Prisma commands and a production migration approval runbook.
+- Database-backed health/readiness, production environment validation, and a thresholded load-smoke harness.
+- Architecture, tenancy, deployment, performance, and rollback evidence documents.
 
 Not guaranteed by repository code:
 
@@ -303,10 +305,8 @@ Not guaranteed by repository code:
 
 1. Mount and tenant-harden the notification UI; deliver record reminders to the related owner and exclude archived applications from stale alerts.
 2. Mount the theme toggle and finish dark-mode coverage across the dashboard.
-3. Correct or rename analytics `responseRate`, which currently duplicates `interviewRate`.
-4. Add browser coverage for invitations, drag-and-drop stage transitions, uploads, and notification behavior.
-5. Connect tenant/owner-scoped vector retrieval and validated citations to Assistant Chat.
-6. Add durable Inngest source indexing with retries, idempotency, deletion handling, and workspace backfill.
-7. Add PostgreSQL RLS only as defense in depth after defining/test-driving policies; do not treat it as a replacement for application scopes.
-8. Add backup/restore verification, health checks, and alert ownership to the production migration runbook.
-9. Expand router tests beyond the currently covered tenant/RBAC and core application/workspace/interview/task behavior.
+3. Add browser coverage for invitations, drag-and-drop stage transitions, uploads, and notification behavior.
+4. Connect tenant/owner-scoped vector retrieval and validated citations to Assistant Chat.
+5. Add PostgreSQL RLS only as defense in depth after defining/test-driving policies; do not treat it as a replacement for application scopes.
+6. Run and archive load/backup/restore evidence against staging, then assign production alert ownership.
+7. Expand router tests beyond the currently covered tenant/RBAC and core application/workspace/interview/task behavior.

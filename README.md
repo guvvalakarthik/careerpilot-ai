@@ -12,13 +12,15 @@ This README describes what exists in the repository today. Planned features are 
 - A validated 10-stage application pipeline with drag-and-drop UI and `DecisionEvent` history.
 - Quick Capture for job URLs or pasted descriptions. Raw input is preserved; pasted job text can be structured by Gemini.
 - Candidate profiles, explainable fit scoring, resume-to-JD matching, transferable skill paths, and a workspace-context assistant.
-- A feature-gated pgvector foundation with versioned knowledge sources, bounded text chunking, normalized Gemini embeddings, and tenant/owner-scoped vector retrieval primitives.
+- A feature-gated pgvector pipeline with versioned sources, bounded chunking, normalized Gemini embeddings, tenant/owner-scoped retrieval, and durable Inngest indexing/backfill.
 - Contact/outreach, interview, task, document/resume-version, and analytics interfaces.
 - Notification persistence, APIs, and cron generation. A bell component exists, but the current dashboard shell does not mount it.
 - A system-aware theme provider and partial dark styles. The current dashboard shell does not mount the theme toggle.
 - A server-owned Cloudflare R2 upload lifecycle with content-signature validation, atomic metadata creation, cleanup on database failure, signed downloads, and PDF/text extraction.
 - A protected daily Vercel cron route for stale applications, upcoming interviews, and due tasks.
-- Sentry runtime instrumentation.
+- Sentry runtime instrumentation plus an uncached, database-backed `/api/health` readiness route.
+- Tenant-scoped operational analytics for AI success rate, p95 latency, and RAG index readiness.
+- A dependency-free load-smoke harness with enforceable p95 and error-rate thresholds.
 - Upstash-backed production rate limits with deterministic in-memory limits in development and tests.
 - Vitest unit and PostgreSQL integration suites plus Playwright critical-flow tests in GitHub Actions.
 
@@ -55,7 +57,7 @@ npm run db:seed
 npm run dev
 ```
 
-Open `http://localhost:3000`. The seed creates:
+Open `http://localhost:3000`. The idempotent seed creates a realistic recruiter workspace with six applications, an interview, a task, a contact, and one-click demo access:
 
 ```text
 demo@careerpilot.dev / demo1234
@@ -80,7 +82,8 @@ Copy `.env.example` and fill only the integrations you need.
 | `AUTH_SECRET` | Always | Auth.js sessions are not safely configured |
 | `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` | Google login | Credentials login still works |
 | `GOOGLE_GENERATIVE_AI_API_KEY` | AI features | AI controls report that AI is not configured |
-| `RAG_ENABLED`, `RAG_EMBEDDING_MODEL` | RAG indexing/retrieval | Disabled by default; no RAG path runs |
+| `RAG_ENABLED`, `RAG_EMBEDDING_MODEL` | RAG indexing/retrieval | Disabled by default; indexing and retrieval paths do not run |
+| `INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY`, `INNGEST_PUBLISH_TIMEOUT_MS` | Durable RAG jobs | Events cannot be published/verified; publishing is bounded to 2 seconds by default |
 | `RESEND_API_KEY`, `RESEND_FROM_EMAIL` | Transactional email | Email sends are skipped and logged |
 | `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME` | Document storage | Upload/download controls return a configuration error |
 | `CRON_SECRET` | Notification cron | Cron fails closed with HTTP 503 |
@@ -94,6 +97,8 @@ Copy `.env.example` and fill only the integrations you need.
 | `npm run dev` | Start the development server |
 | `npm run build` | Create a production build |
 | `npm run start` | Run a completed production build |
+| `npm run load:smoke` | Exercise configured public/readiness routes and enforce latency/error thresholds |
+| `npm run deploy:check` | Validate core or full production environment names without printing values |
 | `npm run lint` | Run ESLint |
 | `npm run typecheck` | Run TypeScript without emitting files |
 | `npm test` | Run unit tests; database integration specs are excluded |
@@ -105,7 +110,7 @@ Copy `.env.example` and fill only the integrations you need.
 | `npm run db:deploy:local` | Apply committed migrations to loopback PostgreSQL only |
 | `npm run db:status:local` | Verify local migration history |
 | `npm run db:drift:local` | Compare the migrated local database with `schema.prisma` |
-| `npm run db:seed` | Seed the demo user, workspace, and profile |
+| `npm run db:seed` | Seed the realistic, repeatable recruiter demo workspace |
 | `npm run db:studio` | Open Prisma Studio |
 
 For a local integration run:
@@ -147,9 +152,9 @@ Playwright covers public/protected navigation, seeded credentials login, workspa
 
 The following are not implemented, despite claims in older project documents:
 
-- The pgvector schema and tested embedding/retrieval primitives exist, but no source indexing job, backfill, citations, or saved chat history is wired yet. `RAG_ENABLED` remains false, and the assistant still uses bounded relational workspace context.
+- Durable RAG source indexing, deletion, retry, failure-state, and workspace backfill are wired. Assistant Chat still uses bounded relational context; vector retrieval, validated citations, and saved chat history are not connected to the UI.
 - No Vercel AI SDK usage. AI calls use `@google/genai` directly and execute synchronously.
-- No Inngest jobs or durable queue. Notification generation is a Vercel cron route; AI work runs in the request path.
+- Inngest currently handles RAG indexing only. Generation requests still execute synchronously, and notification generation remains a Vercel cron route. Event publication is deliberately non-transactional; failed delivery is reconciled by source updates or workspace backfill.
 - Quick Capture preserves a URL but does not scrape or fetch the remote page. Paste the job description for reliable extraction.
 - PostgreSQL RLS is not enabled; tenant isolation is enforced in application queries and middleware.
 - The notification bell and theme toggle are not mounted in the active dashboard shell, and dark styling is not complete across every screen.
@@ -158,4 +163,4 @@ The following are not implemented, despite claims in older project documents:
 - Browser coverage does not yet exercise drag-and-drop stage changes, invitations, external AI calls, R2, Resend, or notification cron execution.
 - Repository configuration does not prove automatic production deployment. Hosting and environment configuration remain deployment responsibilities.
 
-For the deeper architecture and feature-status matrix, see [docs/PROJECT_OVERVIEW.md](docs/PROJECT_OVERVIEW.md).
+For deeper evidence, see [Architecture](docs/ARCHITECTURE.md), [Tenant isolation](docs/TENANCY.md), [Deployment](docs/DEPLOYMENT.md), [Performance](docs/PERFORMANCE.md), and the [feature-status matrix](docs/PROJECT_OVERVIEW.md).

@@ -16,24 +16,42 @@ function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function signInWithCredentials(
+    credentials: { email: string; password: string },
+    loadingLabel: "form" | "demo",
+  ) {
     setLoading(true);
     setError(null);
 
     const result = await signIn("credentials", {
-      email,
-      password,
+      email: credentials.email,
+      password: credentials.password,
       redirect: false,
     });
 
     setLoading(false);
     if (result?.error) {
-      setError("Invalid email or password");
+      setError(
+        loadingLabel === "demo"
+          ? "The demo account is unavailable. Run the database seed or contact the project owner."
+          : "Invalid email or password",
+      );
     } else {
       router.push(callbackUrl);
       router.refresh();
     }
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    await signInWithCredentials({ email, password }, "form");
+  }
+
+  async function handleDemoSignIn() {
+    const demoCredentials = { email: "demo@careerpilot.dev", password: "demo1234" };
+    setEmail(demoCredentials.email);
+    setPassword(demoCredentials.password);
+    await signInWithCredentials(demoCredentials, "demo");
   }
 
   return (
@@ -151,11 +169,19 @@ function LoginForm() {
           {/* Demo credentials */}
           <div className="flex items-start gap-3 rounded-lg border border-slate-100 bg-[#f4f8f7] px-4 py-3">
             <Sparkles className="mt-0.5 h-4 w-4 flex-shrink-0 text-teal-500" />
-            <div>
+            <div className="flex-1">
               <p className="text-xs font-medium text-slate-700">Demo account</p>
               <p className="mt-0.5 text-xs text-slate-500">
                 demo@careerpilot.dev / demo1234
               </p>
+              <button
+                type="button"
+                onClick={handleDemoSignIn}
+                disabled={loading}
+                className="mt-2 text-xs font-semibold text-teal-700 underline-offset-2 hover:underline disabled:opacity-50"
+              >
+                {loading ? "Opening demo..." : "Open recruiter demo"}
+              </button>
             </div>
           </div>
 

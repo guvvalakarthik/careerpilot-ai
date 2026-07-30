@@ -18,7 +18,11 @@ jobs:
     runs-on: ubuntu-latest
     env:
       DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
-      AUTH_SECRET: ci-placeholder-secret
+      AUTH_SECRET: ci-placeholder-secret-at-least-32-characters
+      AUTH_URL: https://careerpilot.example
+      CRON_SECRET: ci-cron-secret-at-least-24-characters
+      UPSTASH_REDIS_REST_URL: https://ci-rate-limit.example
+      UPSTASH_REDIS_REST_TOKEN: ci-rate-limit-token
       NEXT_TELEMETRY_DISABLED: "1"
     steps:
       - uses: actions/checkout@v4
@@ -30,6 +34,12 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Validate production environment contract
+        run: npm run deploy:check
 
       - name: Generate Prisma client
         run: npx prisma generate
@@ -67,8 +77,12 @@ jobs:
           --health-retries 10
     env:
       DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci
-      AUTH_SECRET: ci-placeholder-secret
+      AUTH_SECRET: ci-placeholder-secret-at-least-32-characters
       AUTH_URL: http://127.0.0.1:3000
+      CRON_SECRET: ci-cron-secret-at-least-24-characters
+      INNGEST_DEV: "1"
+      UPSTASH_REDIS_REST_URL: https://ci-rate-limit.example
+      UPSTASH_REDIS_REST_TOKEN: ci-rate-limit-token
       PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
       NEXT_TELEMETRY_DISABLED: "1"
     steps:
@@ -81,6 +95,12 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Validate production environment contract
+        run: npm run deploy:check
 
       - name: Generate Prisma client
         run: npx prisma generate
@@ -102,6 +122,32 @@ jobs:
 
       - name: Critical browser flows
         run: npm run test:e2e:ci
+
+      - name: Production load smoke
+        env:
+          LOAD_BASE_URL: http://127.0.0.1:3000
+          LOAD_DURATION_SECONDS: "10"
+          LOAD_CONCURRENCY: "10"
+          LOAD_MAX_P95_MS: "1000"
+          LOAD_MAX_ERROR_RATE: "0.01"
+        run: |
+          npm run build
+          npm run start -- --hostname 127.0.0.1 --port 3000 > /tmp/careerpilot-next.log 2>&1 &
+          server_pid=$!
+          trap 'kill $server_pid' EXIT
+          ready=0
+          for attempt in {1..60}; do
+            if curl --fail --silent --max-time 2 http://127.0.0.1:3000/api/health > /dev/null; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then
+            cat /tmp/careerpilot-next.log
+            exit 1
+          fi
+          npm run load:smoke
 
       - name: Upload Playwright diagnostics
         if: ${{ !cancelled() }}

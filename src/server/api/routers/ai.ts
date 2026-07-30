@@ -6,6 +6,7 @@ import { chatMessagesSchema } from "@/server/ai-boundaries";
 import { fetchFileTextFromR2, isR2Configured } from "@/server/r2";
 import { recordAudit } from "@/server/api/audit";
 import { ownedApplicationScope, ownerScope } from "@/server/api/ownership";
+import { requestRagSourceIndex } from "@/inngest/events";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type PrismaJson = any;
@@ -105,6 +106,11 @@ export const aiRouter = createTRPCRouter({
         action: "ai.job_extraction",
         entityType: "JobOpportunity",
         entityId: opp.id,
+      });
+      await requestRagSourceIndex({
+        workspaceId: ctx.workspaceId,
+        type: "JOB_OPPORTUNITY",
+        sourceId: opp.id,
       });
 
       return { opportunity: updated, extracted };

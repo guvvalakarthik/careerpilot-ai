@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
+import { requestCandidateProfileIndex } from "@/inngest/events";
 
 export const candidateRouter = createTRPCRouter({
   get: protectedProcedure.query(async ({ ctx }) => {
@@ -21,7 +22,7 @@ export const candidateRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      return ctx.db.candidateProfile.upsert({
+      const profile = await ctx.db.candidateProfile.upsert({
         where: { userId: ctx.userId },
         create: {
           userId: ctx.userId,
@@ -43,5 +44,11 @@ export const candidateRouter = createTRPCRouter({
           ...(input.minSalary !== undefined ? { minSalary: input.minSalary } : {}),
         },
       });
+
+      await requestCandidateProfileIndex({
+        profileId: profile.id,
+        userId: ctx.userId,
+      });
+      return profile;
     }),
 });
