@@ -22,6 +22,14 @@ import {
 } from "@phosphor-icons/react";
 import { SiAtlassian, SiRazorpay } from "react-icons/si";
 import { buildStyles, CircularProgressbar } from "react-circular-progressbar";
+import {
+  matchesExperienceFilter,
+  matchesLocationFilter,
+  matchesWorkplaceFilter,
+  splitOpportunityLocation,
+  type ExperienceFilter,
+  type WorkplaceFilter,
+} from "@/lib/opportunity-filters";
 import { api } from "@/trpc/react";
 import styles from "./workspace.module.css";
 
@@ -54,11 +62,6 @@ function relativeDate(date: Date) {
   if (days === 0) return "Today";
   if (days < 7) return `${days}d ago`;
   return `${Math.floor(days / 7)}w ago`;
-}
-
-function splitLocation(value: string | null) {
-  const [city = "Location not provided", mode = "Not specified"] = (value ?? "").split(/\s*[·•]\s*/);
-  return { city: city || "Location not provided", mode: mode || "Not specified" };
 }
 
 function salaryFloor(value: string) {
@@ -111,8 +114,8 @@ export function OpportunityIntelligence({
   const [feed, setFeed] = useState<Feed>("recommended");
   const [role, setRole] = useState("All");
   const [location, setLocation] = useState("All locations");
-  const [experience, setExperience] = useState("Any experience");
-  const [remote, setRemote] = useState("Any workplace");
+  const [experience, setExperience] = useState<ExperienceFilter>("Any experience");
+  const [remote, setRemote] = useState<WorkplaceFilter>("Any workplace");
   const [sort, setSort] = useState("Best match");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detailOpen, setDetailOpen] = useState(true);
@@ -123,7 +126,7 @@ export function OpportunityIntelligence({
   const { data, isLoading, error } = api.opportunity.list.useQuery({ workspaceId });
 
   const opportunities = useMemo<Opportunity[]>(() => (data ?? []).map((item) => {
-    const parsedLocation = splitLocation(item.location);
+    const parsedLocation = splitOpportunityLocation(item.location);
     return {
       id: item.id,
       applicationId: item.application?.id ?? null,
@@ -157,14 +160,9 @@ export function OpportunityIntelligence({
       if (feed === "saved" && !item.isSaved) return false;
       if (feed === "tracked" && item.stage === "CAPTURED") return false;
       if (role !== "All" && !item.title.toLowerCase().includes(role.toLowerCase())) return false;
-      if (location !== "All locations" && item.city !== location) return false;
-      if (remote !== "Any workplace" && !item.mode.toLowerCase().includes(remote.toLowerCase())) return false;
-      if (experience !== "Any experience") {
-        const years = Number(item.experience.match(/\d+/)?.[0] ?? 0);
-        if (experience === "0-3 years" && years > 3) return false;
-        if (experience === "3-5 years" && (years < 3 || years > 5)) return false;
-        if (experience === "5+ years" && years < 5) return false;
-      }
+      if (!matchesLocationFilter(item.city, location)) return false;
+      if (!matchesWorkplaceFilter(item.mode, remote)) return false;
+      if (!matchesExperienceFilter(item.experience, experience)) return false;
       const searchable = `${item.title} ${item.company} ${item.requiredSkills.join(" ")} ${item.city}`.toLowerCase();
       return !normalizedQuery || searchable.includes(normalizedQuery);
     });
@@ -235,8 +233,8 @@ export function OpportunityIntelligence({
         <div className={styles.filters}>
           <label><span>Role</span><select aria-label="Role" value={role} onChange={(event) => setRole(event.target.value)}><option>All</option>{roles.map((item) => <option key={item}>{item}</option>)}</select><CaretDownIcon /></label>
           <label><span>Location</span><select aria-label="Location" value={location} onChange={(event) => setLocation(event.target.value)}><option>All locations</option>{locations.map((item) => <option key={item}>{item}</option>)}</select><CaretDownIcon /></label>
-          <label><span>Experience</span><select aria-label="Experience" value={experience} onChange={(event) => setExperience(event.target.value)}><option>Any experience</option><option>0-3 years</option><option>3-5 years</option><option>5+ years</option></select><CaretDownIcon /></label>
-          <label><span>Remote</span><select aria-label="Workplace" value={remote} onChange={(event) => setRemote(event.target.value)}><option>Any workplace</option><option>Hybrid</option><option>Remote</option><option>On-site</option></select><CaretDownIcon /></label>
+          <label><span>Experience</span><select aria-label="Experience" value={experience} onChange={(event) => setExperience(event.target.value as ExperienceFilter)}><option>Any experience</option><option>0-3 years</option><option>3-5 years</option><option>5+ years</option></select><CaretDownIcon /></label>
+          <label><span>Remote</span><select aria-label="Workplace" value={remote} onChange={(event) => setRemote(event.target.value as WorkplaceFilter)}><option>Any workplace</option><option>Hybrid</option><option>Remote</option><option>On-site</option></select><CaretDownIcon /></label>
           <div className={styles.sort}><span>Sort by</span><label><select aria-label="Sort opportunities" value={sort} onChange={(event) => setSort(event.target.value)}><option>Best match</option><option>Newest</option><option>Salary</option></select><CaretDownIcon /></label><button aria-label="Clear filters" title="Clear filters" onClick={clearFilters}><SlidersHorizontalIcon weight="bold" /></button></div>
         </div>
         <div className={styles.tableHead}><span>Company &amp; Role</span><span>Match</span><span>Salary (INR)</span><span>Location</span><span>Posted</span><span>Status</span></div>
