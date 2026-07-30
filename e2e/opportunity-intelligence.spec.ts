@@ -67,6 +67,27 @@ test.describe("opportunity intelligence frontend", () => {
     await expect(page.getByRole("button", { name: "Notifications" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Clear filters" })).toBeVisible();
 
+    await page.getByLabel("Location").selectOption("Chennai");
+    await expect(page.getByText("Junior Data Analyst", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText("Product Analyst", { exact: true }).first()).toBeHidden();
+    await expect(page.getByText("Showing 1-1 of 1 opportunities")).toBeVisible();
+    await page.getByRole("button", { name: "Clear filters" }).click();
+
+    await page.getByLabel("Experience").selectOption("5+ years");
+    await expect(page.getByText("Data Analyst II", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText("Strategy Analyst", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText("Junior Data Analyst", { exact: true }).first()).toBeHidden();
+    await page.getByRole("button", { name: "Clear filters" }).click();
+
+    await page.getByLabel("Workplace").selectOption("Remote");
+    await expect(page.getByText("Junior Data Analyst", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText("Business Analyst", { exact: true }).first()).toBeHidden();
+    await expect(page.getByText("Showing 1-1 of 1 opportunities")).toBeVisible();
+    await page.getByRole("button", { name: "Clear filters" }).click();
+    await expect(page.getByLabel("Location")).toHaveValue("All locations");
+    await expect(page.getByLabel("Experience")).toHaveValue("Any experience");
+    await expect(page.getByLabel("Workplace")).toHaveValue("Any workplace");
+
     await page.setViewportSize({ width: 390, height: 844 });
     await expect(page.getByRole("button", { name: "Open navigation" })).toBeVisible();
     await page.getByRole("button", { name: "Close details" }).click();
