@@ -52,6 +52,30 @@ describe("application router", () => {
     expect(result.opportunity.title).toBe("Eng");
   });
 
+  it("moves an application backward to correct its pipeline stage", async () => {
+    mockDb.application.findFirst.mockResolvedValue({
+      id: "app-1",
+      stage: "APPLIED",
+      appliedAt: new Date("2026-07-01T00:00:00.000Z"),
+    });
+    mockDb.application.update.mockResolvedValue({ id: "app-1", stage: "CAPTURED" });
+
+    const result = await (applicationRouter.changeStage as any).mutate({
+      ctx,
+      input: { workspaceId: "ws-1", applicationId: "app-1", toStage: "CAPTURED", note: "Corrected" },
+    });
+
+    expect(result.stage).toBe("CAPTURED");
+    expect(mockDb.decisionEvent.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        applicationId: "app-1",
+        fromStage: "APPLIED",
+        toStage: "CAPTURED",
+        note: "Corrected",
+      }),
+    });
+  });
+
   it("persists saved state for an owned application", async () => {
     mockDb.application.findFirst.mockResolvedValue({ id: "app-1" });
     mockDb.application.update.mockResolvedValue({ id: "app-1", isSaved: true });

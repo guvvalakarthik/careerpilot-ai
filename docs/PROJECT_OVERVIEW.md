@@ -25,11 +25,11 @@ Status meanings:
 |---|---|---|
 | Credentials registration/login | Implemented | Auth.js credentials provider with bcrypt password hashes and JWT sessions |
 | Google OAuth | Configured integration | Requires Google client ID and secret |
-| Password reset | Configured integration | Token storage is implemented; delivery requires Resend |
-| Multi-workspace membership | Implemented | Users may belong to multiple workspaces with per-workspace roles |
+| Password reset | Configured integration | Token flow is complete; development exposes a local reset link when Resend is absent, while production delivery requires Resend |
+| Multi-workspace membership | Implemented | Users may belong to multiple workspaces with per-workspace roles, atomic ownership transfer, and typed-confirmation deletion |
 | Owner/coach/seeker RBAC | Implemented | Membership, role middleware, ownership scopes, last-owner protection |
 | Candidate onboarding/profile | Implemented | Workspace creation, skills, headline, and experience |
-| Application Kanban | Implemented | Ten stages, search/filter, drag-and-drop, validated transitions |
+| Application Kanban | Implemented | Ten validated stage values, search/filter, drag-and-drop, manual correction, and decision history |
 | Quick Capture | Implemented | Stores URL or text and creates opportunity plus application |
 | Remote URL scraping | Not implemented | A pasted URL is preserved but not fetched |
 | Job extraction | Configured integration | Gemini structures pasted job text into validated JSON |
@@ -37,10 +37,10 @@ Status meanings:
 | Resume/JD analysis | Configured integration | R2 text extraction plus match, roadmap, and skill-path output |
 | Workspace assistant | Configured integration | Uses bounded relational workspace context; not RAG |
 | Contacts and outreach | Implemented | Owner-scoped contact CRUD and application-linked messages |
-| Interviews and tasks | Implemented | Scheduling, outcomes, due dates, and upcoming view |
+| Interviews and tasks | Implemented | Scheduling, outcomes, due dates, owned deletion, and upcoming/overdue views |
 | Document vault | Configured integration | R2 object storage, metadata, signed downloads, resume versions |
 | Analytics | Implemented | Funnel, distinct response/interview/offer rates, time-per-stage, velocity, AI p95/success, and RAG readiness |
-| Notifications | Partial | Persistence, routers, cron, and bell component exist; bell is not mounted in current dashboard shell |
+| Notifications | Implemented | Persistence, read state, mounted workspace bell, owner-targeted reminders, and archived-stage exclusion |
 | Notification scheduler | Configured integration | Daily Vercel cron protected by `CRON_SECRET` |
 | Dark mode | Partial | Theme provider and toggle component exist; toggle is not mounted and styles are incomplete |
 | Sentry | Configured integration | Server, edge, client, and request-error instrumentation |
@@ -217,7 +217,7 @@ The route creates notifications for:
 
 The route fails closed if `CRON_SECRET` is missing and uses a constant-time bearer-secret comparison. It writes notifications directly during the request; the Inngest worker is currently reserved for RAG indexing.
 
-Current limitations: the cron sends each generated reminder to every workspace member instead of the related record owner, and the stale-application terminal filter omits `ARCHIVED`. The `NotificationBell` component is not mounted by the active `AppSidebar` dashboard layout.
+Each reminder is delivered only to the related application, interview, or task owner. Archived and other terminal applications are excluded from stale alerts. The workspace shell mounts `NotificationBell`; the workspace-list shell does not show workspace-scoped controls.
 
 ## Rate limits
 
@@ -303,10 +303,9 @@ Not guaranteed by repository code:
 
 ## Known gaps and next engineering work
 
-1. Mount and tenant-harden the notification UI; deliver record reminders to the related owner and exclude archived applications from stale alerts.
-2. Mount the theme toggle and finish dark-mode coverage across the dashboard.
-3. Add browser coverage for invitations, drag-and-drop stage transitions, uploads, and notification behavior.
-4. Connect tenant/owner-scoped vector retrieval and validated citations to Assistant Chat.
-5. Add PostgreSQL RLS only as defense in depth after defining/test-driving policies; do not treat it as a replacement for application scopes.
-6. Run and archive load/backup/restore evidence against staging, then assign production alert ownership.
-7. Expand router tests beyond the currently covered tenant/RBAC and core application/workspace/interview/task behavior.
+1. Mount the theme toggle and finish dark-mode coverage across the dashboard.
+2. Add browser coverage for invitations, pointer-based drag-and-drop, configured uploads, and live notification behavior.
+3. Connect tenant/owner-scoped vector retrieval and validated citations to Assistant Chat.
+4. Add PostgreSQL RLS only as defense in depth after defining/test-driving policies; do not treat it as a replacement for application scopes.
+5. Run and archive load/backup/restore evidence against staging, then assign production alert ownership.
+6. Expand router tests beyond the currently covered tenant/RBAC and core application/workspace/interview/task/contact behavior.

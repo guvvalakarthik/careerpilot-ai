@@ -2,6 +2,7 @@
 import { auth } from "@/server/auth";
 import { db } from "@/server/db";
 import { WorkspaceTabs } from "./workspace-tabs";
+import { ownedApplicationScope, ownerScope } from "@/server/api/ownership";
 
 export default async function WorkspaceDetailPage({ params }: { params: Promise<{ workspaceId: string }> }) {
   const session = await auth();
@@ -20,11 +21,11 @@ export default async function WorkspaceDetailPage({ params }: { params: Promise<
   });
   const [companies, opportunities, applications, contacts, interviews, tasks] = await Promise.all([
     db.company.count({ where: { workspaceId } }),
-    db.jobOpportunity.count({ where: { workspaceId } }),
-    db.application.count({ where: { workspaceId } }),
-    db.contact.count({ where: { workspaceId } }),
-    db.interview.count({ where: { workspaceId } }),
-    db.task.count({ where: { workspaceId, status: "OPEN" } }),
+    db.jobOpportunity.count({ where: { workspaceId, ...ownedApplicationScope(membership.role, session.user.id) } }),
+    db.application.count({ where: { workspaceId, ...ownerScope(membership.role, session.user.id) } }),
+    db.contact.count({ where: { workspaceId, ...ownerScope(membership.role, session.user.id) } }),
+    db.interview.count({ where: { workspaceId, ...ownedApplicationScope(membership.role, session.user.id) } }),
+    db.task.count({ where: { workspaceId, ...ownerScope(membership.role, session.user.id), status: "OPEN" } }),
   ]);
 
   return (

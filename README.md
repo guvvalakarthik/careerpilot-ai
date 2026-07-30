@@ -144,9 +144,9 @@ npm run test:e2e:ci
 `.github/workflows/ci.yml` runs two jobs for pushes and pull requests to `main`:
 
 1. `quality`: dependency install, Prisma generation, lint, typecheck, unit tests, and production build.
-2. `integration-e2e`: pgvector-enabled PostgreSQL 16, guarded migrations and drift checks, RBAC/vector integration tests, Chromium installation, seed, and four critical browser flows.
+2. `integration-e2e`: pgvector-enabled PostgreSQL 16, guarded migrations and drift checks, RBAC/vector integration tests, Chromium installation, seed, and eight critical browser flows.
 
-Playwright covers public/protected navigation, seeded credentials login, workspace access, sign-out, registration, workspace creation, and profile onboarding. Traces, screenshots, videos, and the HTML report are uploaded from CI.
+Playwright covers public/protected navigation, seeded credentials login, local password reset, workspace access, sign-out, registration, onboarding, opportunity filters, saved roles, tailoring, pipeline stage correction, overdue tasks, and typed-confirmation workspace deletion. Traces, screenshots, videos, and the HTML report are uploaded from CI.
 
 ## Current limitations
 
@@ -157,10 +157,8 @@ The following are not implemented, despite claims in older project documents:
 - Inngest currently handles RAG indexing only. Generation requests still execute synchronously, and notification generation remains a Vercel cron route. Event publication is deliberately non-transactional; failed delivery is reconciled by source updates or workspace backfill.
 - Quick Capture preserves a URL but does not scrape or fetch the remote page. Paste the job description for reliable extraction.
 - PostgreSQL RLS is not enabled; tenant isolation is enforced in application queries and middleware.
-- The notification bell and theme toggle are not mounted in the active dashboard shell, and dark styling is not complete across every screen.
-- Notification cron records are broadcast to all workspace members rather than only the related record owner; archived applications can also satisfy the current stale query.
-- Analytics currently reports `responseRate` and `interviewRate` from the same calculation.
-- Browser coverage does not yet exercise drag-and-drop stage changes, invitations, external AI calls, R2, Resend, or notification cron execution.
+- The notification bell is mounted in the workspace shell, but the theme toggle is not mounted and dark styling is not complete across every screen.
+- Browser coverage does not yet exercise pointer-based drag-and-drop, invitations, external AI calls, R2, Resend delivery, or live cron execution; stage correction and cron ownership rules are covered at browser/unit levels respectively.
 - Repository configuration does not prove automatic production deployment. Hosting and environment configuration remain deployment responsibilities.
 
 For deeper evidence, see [Architecture](docs/ARCHITECTURE.md), [Tenant isolation](docs/TENANCY.md), [Deployment](docs/DEPLOYMENT.md), [Performance](docs/PERFORMANCE.md), and the [feature-status matrix](docs/PROJECT_OVERVIEW.md).

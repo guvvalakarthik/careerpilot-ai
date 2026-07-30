@@ -106,7 +106,13 @@ export function KanbanBoard({
   }, []);
 
   return (
-    <div className="flex gap-3 overflow-x-auto pb-4">
+    <>
+      {changeStageMutation.error && (
+        <div role="alert" className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
+          {changeStageMutation.error.message}
+        </div>
+      )}
+      <div className="flex gap-3 overflow-x-auto pb-4">
       {STAGES.map((stage) => {
         const stageApps = applications.filter((a) => a.stage === stage.id);
         return (
@@ -224,7 +230,8 @@ export function KanbanBoard({
           </div>
         );
       })}
-    </div>
+      </div>
+    </>
   );
 }
 

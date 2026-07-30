@@ -126,7 +126,7 @@ export function WorkspaceTabs({ workspaceId, workspaceName, workspaceSlug, role,
         {tab === "insights" ? <Legacy title={title} subtitle={subtitle}><AnalyticsTab workspaceId={workspaceId}/></Legacy> : null}
         {tab === "assistant" ? <Legacy title={title} subtitle={subtitle}><AssistantTab workspaceId={workspaceId}/></Legacy> : null}
         {tab === "members" ? <Legacy title={title} subtitle={subtitle}><MembersTab workspaceId={workspaceId} role={role} currentUserId={currentUserId} members={members}/></Legacy> : null}
-        {tab === "settings" ? <Legacy title={title} subtitle={subtitle}><SettingsTab workspaceId={workspaceId} role={role} members={members}/></Legacy> : null}
+        {tab === "settings" ? <Legacy title={title} subtitle={subtitle}><SettingsTab workspaceId={workspaceId} workspaceName={workspaceName} role={role} members={members}/></Legacy> : null}
       </main>
     </div>
   </div>;

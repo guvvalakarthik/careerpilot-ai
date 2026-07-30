@@ -9,6 +9,7 @@ import {
 import { recordAudit } from "@/server/api/audit";
 import { ownedApplicationScope, ownerScope } from "@/server/api/ownership";
 import { requestRagWorkspaceBackfill } from "@/inngest/events";
+import { deleteFromR2, isR2Configured } from "@/server/r2";
 
 function slugify(name: string): string {
   return (
@@ -223,6 +224,118 @@ export const workspaceRouter = createTRPCRouter({
       });
 
       return membership;
+    }),
+
+  transferOwnership: requireRole(["OWNER"])
+    .input(
+      z.object({
+        workspaceId: z.string(),
+        memberUserId: z.string(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      if (input.memberUserId === ctx.userId) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Choose another member to transfer ownership to",
+        });
+      }
+
+      const target = await ctx.db.membership.findUnique({
+        where: {
+          workspaceId_userId: {
+            workspaceId: ctx.workspaceId,
+            userId: input.memberUserId,
+          },
+        },
+      });
+      if (!target) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Member not found" });
+      }
+
+      await ctx.db.$transaction([
+        ctx.db.membership.update({
+          where: {
+            workspaceId_userId: {
+              workspaceId: ctx.workspaceId,
+              userId: input.memberUserId,
+            },
+          },
+          data: { role: "OWNER" },
+        }),
+        ctx.db.membership.update({
+          where: {
+            workspaceId_userId: {
+              workspaceId: ctx.workspaceId,
+              userId: ctx.userId,
+            },
+          },
+          data: { role: "COACH" },
+        }),
+      ]);
+
+      await recordAudit({
+        db: ctx.db,
+        workspaceId: ctx.workspaceId,
+        userId: ctx.userId,
+        action: "workspace.ownership_transfer",
+        entityType: "Workspace",
+        entityId: ctx.workspaceId,
+        metadata: { previousOwnerId: ctx.userId, newOwnerId: input.memberUserId },
+      });
+
+      return { ok: true, newOwnerId: input.memberUserId };
+    }),
+
+  delete: requireRole(["OWNER"])
+    .input(
+      z.object({
+        workspaceId: z.string(),
+        confirmationName: z.string().min(1),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const workspace = await ctx.db.workspace.findUnique({
+        where: { id: ctx.workspaceId },
+        select: {
+          id: true,
+          name: true,
+          documents: { select: { storageKey: true } },
+        },
+      });
+      if (!workspace) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Workspace not found" });
+      }
+      if (input.confirmationName !== workspace.name) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Workspace name does not match",
+        });
+      }
+
+      await recordAudit({
+        db: ctx.db,
+        workspaceId: ctx.workspaceId,
+        userId: ctx.userId,
+        action: "workspace.delete_requested",
+        entityType: "Workspace",
+        entityId: ctx.workspaceId,
+        metadata: { name: workspace.name },
+      });
+
+      await ctx.db.workspace.delete({ where: { id: ctx.workspaceId } });
+
+      let storageCleanupFailures = 0;
+      if (isR2Configured() && workspace.documents.length > 0) {
+        const cleanup = await Promise.allSettled(
+          workspace.documents.map((document) => deleteFromR2(document.storageKey)),
+        );
+        storageCleanupFailures = cleanup.filter(
+          (result) => result.status === "rejected",
+        ).length;
+      }
+
+      return { ok: true, storageCleanupFailures };
     }),
 
   requestRagBackfill: requireRole(["OWNER", "COACH"])
